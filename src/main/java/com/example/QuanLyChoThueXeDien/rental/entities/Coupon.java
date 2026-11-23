@@ -13,4 +13,9 @@ public class Coupon {
     @Column(name = "NgayKetThuc") private LocalDateTime endsAt;
     @Column(name = "SoLuongConLai") private Integer remainingQuantity;
     @Column(name = "TrangThai") private String status;
+
+    public void consumeReservedUse() {
+        if (remainingQuantity == null || remainingQuantity <= 0) throw new IllegalStateException("Mã đã hết lượt.");
+        remainingQuantity--;
+    }
 }

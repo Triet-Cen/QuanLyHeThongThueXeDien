@@ -1,5 +1,8 @@
 package com.example.QuanLyChoThueXeDien.rental;
 
+import com.example.QuanLyChoThueXeDien.payment.repositories.PaymentRepository;
+import com.example.QuanLyChoThueXeDien.payment.services.PaymentService;
+import com.example.QuanLyChoThueXeDien.payment.services.VnPayGateway;
 import com.example.QuanLyChoThueXeDien.auth.entities.*;
 import com.example.QuanLyChoThueXeDien.category.entities.VehicleCategory;
 import com.example.QuanLyChoThueXeDien.VehicleModel.entities.VehicleModel;
@@ -12,6 +15,8 @@ import com.example.QuanLyChoThueXeDien.rental.entities.*;
 import com.example.QuanLyChoThueXeDien.rental.dtos.*;
 import com.example.QuanLyChoThueXeDien.rental.services.*;
 import com.example.QuanLyChoThueXeDien.rental.repositories.RentalRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import jakarta.persistence.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -43,10 +48,13 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @EnabledIfEnvironmentVariable(named = "BOOKING_TEST_DB_URL", matches = "jdbc:mysql://.+")
 @SpringJUnitConfig(BookingDatabaseIT.Config.class)
+@TestPropertySource(properties = {"VNPAY_TMN_CODE=TEST","VNPAY_HASH_SECRET=fixture-only",
+    "VNPAY_URL=https://gateway.invalid/pay","VNPAY_RETURN_URL=https://merchant.invalid/return",
+    "VNPAY_IPN_URL=https://merchant.invalid/ipn"})
 class BookingDatabaseIT {
     @Configuration @EnableTransactionManagement
     @EnableJpaRepositories(basePackages = "com.example.QuanLyChoThueXeDien")
-    @Import({BookingService.class, RentalQuoteService.class})
+    @Import({BookingService.class, RentalQuoteService.class, PaymentRepository.class, PaymentService.class, VnPayGateway.class})
     static class Config {
         @Bean DataSource dataSource() throws Exception {
             var source = new DriverManagerDataSource(System.getenv("BOOKING_TEST_DB_URL"),
@@ -64,6 +72,7 @@ class BookingDatabaseIT {
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "none")); return factory;
         }
         @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) { return new JpaTransactionManager(factory); }
+        @Bean JdbcTemplate paymentJdbc(DataSource source) { return new JdbcTemplate(source); }
         @Bean AtomicBoolean failNotification() { return new AtomicBoolean(); }
         @Bean @Primary EntityManager entityManager(EntityManagerFactory factory, AtomicBoolean failNotification) {
             EntityManager delegate = SharedEntityManagerCreator.createSharedEntityManager(factory);
@@ -71,6 +80,9 @@ class BookingDatabaseIT {
                 new Class<?>[]{EntityManager.class}, (proxy, method, args) -> {
                     if (method.getName().equals("persist") && args[0] instanceof BookingNotification && failNotification.getAndSet(false))
                         throw new IllegalStateException("Injected notification failure inside the real DB transaction");
+                    if (method.getName().equals("persist") && args[0] instanceof RentalHistory h &&
+                        "BOOKED".equals(ReflectionTestUtils.getField(h,"newStatus")) && failNotification.getAndSet(false))
+                        throw new IllegalStateException("Injected history failure inside the payment transaction");
                     try { return method.invoke(delegate, args); }
                     catch (java.lang.reflect.InvocationTargetException e) { throw e.getCause(); }
                 });
@@ -184,6 +196,72 @@ class BookingDatabaseIT {
         assertDoesNotThrow(() -> service.create(fixture.a(),quote));
     }
     long count(String jpql) { return tx.execute(s -> em.createQuery(jpql,Long.class).getSingleResult()); }
+
+    // These cases additionally require db/manual/VNPay_payment_schema.sql on the isolated test schema.
+    @Nested class PaymentRaces {
+        @Autowired PaymentService payments;
+        @Autowired JdbcTemplate db;
+        int rentalId;
+        String ref;
+        Map<String,String[]> callback;
+
+        @BeforeEach void createAttempt() throws Exception {
+            var form = form(fixture.x(),start);
+            form.setCouponCode(fixture.coupon());
+            rentalId = service.create(fixture.a(),service.quote(fixture.a(),form));
+            var invoice = payments.getInvoice(fixture.a(),rentalId,false);
+            payments.startPayment(fixture.a(),rentalId,false,invoice.key(),UUID.randomUUID(),"127.0.0.1");
+            ref = db.queryForObject("select txn_ref from giao_dich_thanh_toan where MaDonThue=?",String.class,rentalId);
+            String providerId = db.queryForObject("select MaGD from giao_dich_thanh_toan where txn_ref=?",String.class,ref);
+            var fields = new TreeMap<String,String>();
+            fields.put("vnp_Amount",invoice.amount().movePointRight(2).toBigIntegerExact().toString());
+            fields.put("vnp_ResponseCode","00"); fields.put("vnp_TmnCode","TEST");
+            fields.put("vnp_TransactionNo",providerId); fields.put("vnp_TransactionStatus","00"); fields.put("vnp_TxnRef",ref);
+            var signed = new StringJoiner("&");
+            callback = new HashMap<>();
+            fields.forEach((k,v) -> { signed.add(k+"="+v); callback.put(k,new String[]{v}); });
+            var mac = javax.crypto.Mac.getInstance("HmacSHA512");
+            mac.init(new javax.crypto.spec.SecretKeySpec("fixture-only".getBytes(java.nio.charset.StandardCharsets.UTF_8),"HmacSHA512"));
+            callback.put("vnp_SecureHash",new String[]{HexFormat.of().formatHex(mac.doFinal(
+                signed.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)))});
+        }
+
+        int allocated() {
+            return db.queryForObject("select count(*) from payment_allocation where obligation=?",Integer.class,"RENTAL:"+rentalId);
+        }
+
+        @Test void vp10_17_rollbackThenConcurrentRetriesAllocateExactlyOnce() throws Exception {
+            failNotification.set(true);
+            assertThrows(RuntimeException.class,()->payments.handleIpn(callback));
+            assertEquals(0,allocated());
+            assertEquals("PENDING",payments.getPaymentResult(fixture.a(),ref).status());
+            assertTrue(service.view(fixture.a(),rentalId).isPending());
+            assertEquals(List.of(0,0),race(()->Integer.valueOf(payments.handleIpn(callback)),
+                ()->Integer.valueOf(payments.handleIpn(callback))));
+            assertEquals(1,allocated());
+            assertEquals("BOOKED",service.view(fixture.a(),rentalId).getStatus());
+            assertEquals(0,tx.execute(s -> em.find(Coupon.class,fixture.coupon()).getRemainingQuantity()).intValue());
+            assertEquals(1,count("select count(h) from RentalHistory h where h.rental.rentalId="+rentalId+" and h.newStatus='BOOKED'"));
+        }
+
+        @Test void vp15_timeoutAndIpnAtBoundaryLeaveOneCancelledOrder() throws Exception {
+            clock.instant.updateAndGet(t->t.plusSeconds(900));
+            assertEquals(List.of(0,0),race(()->Integer.valueOf(payments.handleIpn(callback)),()->{service.expire(rentalId);return 0;}));
+            assertEquals(0,allocated());
+            assertEquals("CANCELLED",service.view(fixture.a(),rentalId).getStatus());
+            assertEquals("NEEDS_RECONCILIATION",payments.getPaymentResult(fixture.a(),ref).status());
+        }
+
+        @AfterEach void removePaymentFixture() {
+            if (ref == null) return;
+            tx.executeWithoutResult(s -> {
+                db.update("delete from payment_receipt where signature in (select signature from payment_ipn where ref=?)",ref);
+                db.update("delete from payment_ipn where ref=?",ref);
+                db.update("delete from payment_allocation where obligation=?","RENTAL:"+rentalId);
+                db.update("delete from giao_dich_thanh_toan where txn_ref=?",ref);
+            });
+        }
+    }
     List<Object> race(Callable<Integer> a, Callable<Integer> b) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2); CountDownLatch ready = new CountDownLatch(2), go = new CountDownLatch(1);
         try {

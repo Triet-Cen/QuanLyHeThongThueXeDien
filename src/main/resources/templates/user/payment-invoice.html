@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hóa đơn thanh toán</title><link rel="stylesheet" th:href="@{/css/customer.css}"><link rel="stylesheet" th:href="@{/css/booking.css}"></head>
+<body class="customer-page booking-page"><main class="customer-container"><section class="glass-card" th:with="r=${invoice.rental}">
+<h1 th:text="|${invoice.fees ? 'Hóa đơn phí phát sinh' : 'Hóa đơn tiền thuê'} · Đơn #${r.rentalId}|"></h1>
+<p role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+<p th:text="|${r.vehicle.vehicleModel.modelName} · ${r.pickupStation.stationName}|"></p>
+<p th:text="|${#temporals.format(r.startAt,'HH:mm dd/MM/yyyy')} → ${#temporals.format(r.endAt,'HH:mm dd/MM/yyyy')}|"></p>
+<dl class="booking-details" th:unless="${invoice.fees}">
+<dt>Số ngày thuê</dt><dd th:text="${r.rentalDays}"></dd>
+<dt>Đơn giá đã chốt</dt><dd th:text="|${r.dailyRate} đ/ngày|"></dd>
+<dt>Tiền thuê</dt><dd th:text="|${r.rentalAmount} đ|"></dd>
+<dt>Mã giảm</dt><dd th:text="${r.couponCode ?: 'Không áp dụng'}"></dd>
+<dt>Tiền giảm</dt><dd th:text="|${r.discountAmount} đ|"></dd>
+<dt>Hạn giữ lịch</dt><dd th:text="${#temporals.format(r.holdExpiresAt,'HH:mm:ss dd/MM/yyyy')}"></dd></dl>
+<table th:if="${invoice.fees}"><thead><tr><th>Khoản phí</th><th>Lý do</th><th>Số tiền</th><th>Trạng thái</th></tr></thead>
+<tbody><tr th:each="fee : ${invoice.lines}"><td th:text="${fee.type}"></td><td th:text="${fee.reason}"></td>
+<td th:text="|${fee.amount} đ|"></td><td th:text="${fee.status}"></td></tr></tbody></table>
+<p><strong th:text="|Tổng cần trả: ${#numbers.formatDecimal(invoice.amount,1,'POINT',0,'COMMA')} đ|"></strong></p>
+<form th:if="${invoice.amount.signum() > 0}" th:action="@{/bookings/{id}/vnpay(id=${r.rentalId})}" method="post" data-booking-submit>
+<input type="hidden" name="fees" th:value="${invoice.fees}"><input type="hidden" name="invoiceKey" th:value="${invoice.key}">
+<input type="hidden" name="requestKey" th:value="${requestKey}"><button type="submit">Thanh toán qua VNPay</button></form>
+<p th:if="${!invoice.fees and invoice.amount.signum() == 0}">Đơn 0 đồng đang chờ chính sách xác nhận miễn phí.</p>
+<a th:href="@{/bookings/{id}(id=${r.rentalId})}">Về chi tiết đơn</a></section></main><script defer th:src="@{/js/booking.js}"></script></body></html>

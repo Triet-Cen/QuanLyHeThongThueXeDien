@@ -1,5 +1,10 @@
 package com.example.QuanLyChoThueXeDien.rental;
 
+import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentInvoice;
+import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentResult;
+import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentFee;
+import com.example.QuanLyChoThueXeDien.payment.controllers.PaymentController;
+import com.example.QuanLyChoThueXeDien.payment.services.PaymentService;
 import com.example.QuanLyChoThueXeDien.auth.services.CustomUserDetailsService;
 import com.example.QuanLyChoThueXeDien.config.SecurityConfig;
 import com.example.QuanLyChoThueXeDien.rental.controllers.*;
@@ -32,10 +37,11 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 @ContextConfiguration(classes = BookingSecurityTests.Config.class)
 class BookingSecurityTests {
     @Configuration @EnableWebSecurity @EnableWebMvc
-    @Import({SecurityConfig.class, BookingController.class, RentalClock.class})
+    @Import({SecurityConfig.class, BookingController.class, RentalClock.class, PaymentController.class})
     static class Config {
         @Bean CustomUserDetailsService users() { return mock(CustomUserDetailsService.class); }
         @Bean BookingService bookings() { return mock(BookingService.class); }
+        @Bean PaymentService payments() { return mock(PaymentService.class); }
         @Bean org.thymeleaf.spring6.view.ThymeleafViewResolver views() {
             var resolver = new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
             resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setCharacterEncoding("UTF-8");
@@ -46,6 +52,7 @@ class BookingSecurityTests {
     }
     @Autowired WebApplicationContext context;
     @Autowired BookingService service;
+    @Autowired PaymentService payments;
     MockMvc mvc;
     @BeforeEach void setup() { reset(service); mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
 
@@ -103,6 +110,33 @@ class BookingSecurityTests {
         mvc.perform(get("/bookings/8").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
             .andExpect(content().string(org.hamcrest.Matchers.containsString("data-hold-countdown")));
         mvc.perform(get("/bookings").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk());
+        when(payments.getInvoice("a",8,false)).thenReturn(new PaymentInvoice(r,false,java.util.List.of(),BigDecimal.TEN,"snapshot"));
+        mvc.perform(get("/bookings/8/invoice").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("snapshot")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("_csrf")));
+        var fee = new PaymentFee(1,BigDecimal.TEN,"DAMAGE","Đèn trước","UNPAID");
+        when(payments.getInvoice("a",8,true)).thenReturn(new PaymentInvoice(r,true,java.util.List.of(fee),BigDecimal.TEN,"fees"));
+        mvc.perform(get("/bookings/8/invoice?fees=true").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Đèn trước")));
+    }
+
+    @Test void vp01_paymentPostRequiresCustomerAndCsrf() throws Exception {
+        mvc.perform(post("/bookings/8/vnpay").with(user("a").roles("CUSTOMER"))).andExpect(status().isForbidden());
+        mvc.perform(post("/bookings/8/vnpay").with(user("a").roles("STAFF")).with(csrf())).andExpect(status().isForbidden());
+    }
+
+    @Test void vp06_14_returnWithForgedSuccessDisplaysPersistedPending() throws Exception {
+        when(payments.getPaymentResult("a","ref")).thenReturn(new PaymentResult(8,"ref","PENDING","PENDING_PAYMENT",BigDecimal.TEN));
+        mvc.perform(get("/payments/vnpay/return?vnp_TxnRef=ref&vnp_ResponseCode=00").with(user("a").roles("CUSTOMER")))
+            .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chờ xác nhận")));
+    }
+
+    @Test void reconciliationViewAndNotesAreAdminOnly() throws Exception {
+        mvc.perform(get("/admin/payments/reconciliation").with(user("a").roles("CUSTOMER"))).andExpect(status().isForbidden());
+        when(payments.listPaymentsForReview()).thenReturn(java.util.List.of(java.util.Map.of("event_id",1,"ref","REF","disposition","REVIEW_AMOUNT",
+            "rental",8,"provider_id","123","expected",10,"received_amount",20,"currency","VND","received_at","08:00","resolution","")));
+        mvc.perform(get("/admin/payments/reconciliation").with(user("a").roles("ADMIN"))).andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("/reconciliation/1/notes")));
     }
     private BookingForm selection() {
         BookingForm f = new BookingForm(); f.setStationId(1); f.setVehicleId(1);

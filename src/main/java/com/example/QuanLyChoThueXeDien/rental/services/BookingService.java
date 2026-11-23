@@ -98,6 +98,20 @@ public class BookingService {
         transition(null, id, false);
     }
 
+    /** Join the caller's IPN transaction and serialize with cancellation and timeout. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Rental lockForPaymentNotification(Integer id) {
+        return lockRental(null,id);
+    }
+
+    @Transactional(readOnly = true)
+    public Rental readOwned(String email, Integer id) {
+        Account account = requireCustomer(email, false);
+        return rentals.findById(id)
+            .filter(r -> r.getCustomer().getAccount().getAccountId().equals(account.getAccountId()))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
     @Transactional(readOnly = true)
     public List<Rental> own(String email) {
         requireCustomer(email, false);
@@ -106,17 +120,22 @@ public class BookingService {
         return rentals.findForCustomer(customer.getCustomerId());
     }
 
-    private Rental transition(String email, Integer id, boolean cancel) {
+    private Rental lockRental(Account actor, Integer id) {
         // Read ownership before acquiring any lock; refresh under locks before deciding a transition.
         Rental rental = rentals.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        Account actor = email == null ? null : requireCustomer(email, true);
         CustomerProfile customer = rental.getCustomer();
         if (actor != null && !customer.getAccount().getAccountId().equals(actor.getAccountId()))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         em.refresh(customer, LockModeType.PESSIMISTIC_WRITE);
         vehicles.findForUpdate(rental.getVehicle().getVehicleId()).orElseThrow();
-        if (rental.getCouponCode() != null) coupons.findForUpdate(rental.getCouponCode()).orElseThrow();
+        if (rental.getCouponCode() != null) coupons.findForUpdate(rental.getCouponCode());
         em.refresh(rental, LockModeType.PESSIMISTIC_WRITE);
+        return rental;
+    }
+
+    private Rental transition(String email, Integer id, boolean cancel) {
+        Account actor = email == null ? null : requireCustomer(email, true);
+        Rental rental = lockRental(actor,id);
         LocalDateTime now = clock.now();
         boolean expired = rental.isPending() && !rental.hasActiveHold(now);
         if (expired || (cancel && rental.isPending())) {

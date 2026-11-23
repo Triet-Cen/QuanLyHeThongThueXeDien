@@ -27,9 +27,10 @@
     </dl>
     <div th:if="${activeHold}" data-active-hold>
         <p>Thời gian còn lại: <strong data-hold-countdown th:attr="data-server-now=${serverNow},data-hold-until=${holdUntil}">Đang tính…</strong></p>
-        <p>Thanh toán VNPay/SePay chưa được tích hợp. Đơn chưa được xác nhận thanh toán; hạn giữ lịch không thay đổi khi tải lại trang.</p>
+        <a class="btn-primary" th:href="@{/bookings/{id}/invoice(id=${rental.rentalId})}">Xem hóa đơn tiền thuê</a>
         <form th:action="@{/bookings/{id}/cancel(id=${rental.rentalId})}" method="post"><button class="btn-ghost" type="submit">Hủy đơn chờ thanh toán</button></form>
     </div>
-    <p data-expired-message th:hidden="${activeHold}">Bạn có thể tìm và chọn lịch xe khác. Xe chỉ được giữ trong khoảng thời gian thuê của đơn còn hiệu lực.</p>
+    <a class="btn-ghost" th:if="${#strings.equalsIgnoreCase(rental.status,'RENTED')}" th:href="@{/bookings/{id}/invoice(id=${rental.rentalId},fees=true)}">Xem hóa đơn phí trả xe</a>
+    <p data-expired-message th:hidden="${rental.status != 'CANCELLED'}">Bạn có thể tìm và chọn lịch xe khác.</p>
     <div class="booking-actions"><a class="btn-ghost" th:href="@{/home#vehicle-search}">Tìm xe</a><a class="btn-ghost" th:href="@{/bookings/{id}(id=${rental.rentalId})}">Cập nhật trạng thái</a></div>
 </section></main><script th:src="@{/js/booking.js}" defer></script></body></html>

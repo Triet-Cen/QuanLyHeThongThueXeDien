@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><title>Đối soát VNPay</title>
+<link rel="stylesheet" th:href="@{/css/admin.css}"></head><body><main><h1>Giao dịch VNPay cần đối soát</h1>
+<p th:if="${events.empty}">Chưa có giao dịch cần đối soát.</p><table th:unless="${events.empty}">
+<caption>200 thông báo gần nhất cần đối soát</caption><thead><tr><th>Đơn / tham chiếu</th><th>Mã VNPay</th><th>Hóa đơn</th><th>Số tiền cổng báo</th>
+<th>Thời gian nhận</th><th>Lý do</th><th>Kết quả xử lý</th></tr></thead><tbody><tr th:each="e : ${events}">
+<td th:text="|${e.rental ?: 'Chưa rõ đơn'} · ${e.ref}|"></td><td th:text="${e.provider_id}"></td><td th:text="${e.expected}"></td><td th:text="|${e.received_amount} ${e.currency}|"></td>
+<td th:text="${e.received_at}"></td><td th:text="${e.disposition}"></td><td><p th:text="${e.resolution}"></p>
+<form method="post" th:action="@{/admin/payments/reconciliation/{id}/notes(id=${e.event_id})}">
+<label>Ghi nhận xử lý <input name="note" required maxlength="1000"></label><button>Lưu</button></form></td></tr></tbody></table></main></body></html>

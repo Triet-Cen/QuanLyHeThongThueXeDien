@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kết quả thanh toán</title><link rel="stylesheet" th:href="@{/css/customer.css}"></head>
+<body class="customer-page"><main class="customer-container"><section class="glass-card">
+<h1>Kết quả thanh toán</h1><div role="status" th:switch="${result.status}">
+<p th:case="'SUCCESS'">Đã xác nhận thanh toán.</p><p th:case="'FAILED'">Lần thanh toán thất bại. Bạn có thể mở đơn để kiểm tra và thử lại nếu còn hạn.</p>
+<p th:case="'NEEDS_RECONCILIATION'">Giao dịch đang được đối soát.</p><p th:case="*">Đang chờ xác nhận thanh toán.</p></div>
+<p th:text="|Đơn #${result.rental} · ${result.rentalStatus}|"></p>
+<p th:text="|Số tiền của hóa đơn: ${result.amount} VND|"></p><p th:text="|Mã tham chiếu: ${result.ref}|"></p>
+<a th:href="@{/payments/vnpay/return(vnp_TxnRef=${result.ref})}">Cập nhật kết quả</a>
+<a th:href="@{/bookings/{id}(id=${result.rental})}">Về chi tiết đơn</a></section></main></body></html>
