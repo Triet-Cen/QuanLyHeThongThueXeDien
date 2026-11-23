@@ -3,19 +3,18 @@ package com.example.QuanLyChoThueXeDien.auth.controllers;
 
 import com.example.QuanLyChoThueXeDien.VehicleModel.entities.VehicleModel;
 import com.example.QuanLyChoThueXeDien.VehicleModel.services.VehicleModelService;
-import com.example.QuanLyChoThueXeDien.pricing.entities.RentalPrice;
-import com.example.QuanLyChoThueXeDien.pricing.repositories.RentalPriceRepository;
+import com.example.QuanLyChoThueXeDien.pricing.services.RentalQuoteService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.example.QuanLyChoThueXeDien.auth.dtos.RegisterRequest;
 import com.example.QuanLyChoThueXeDien.auth.services.RegistrationService;
 import com.example.QuanLyChoThueXeDien.search.dtos.VehicleSearchForm;
 import com.example.QuanLyChoThueXeDien.search.services.VehicleSearchService;
+import com.example.QuanLyChoThueXeDien.session.BookingSession;
 import jakarta.validation.Valid;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
@@ -28,23 +27,22 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.security.core.Authentication;
 
 import java.security.Principal;
-import com.example.QuanLyChoThueXeDien.auth.repositories.CustomerProfileRepository;
 
 @Controller
 public class AuthController {
 
     private final RegistrationService registrationService;
     private final VehicleModelService vehicleModelService;
-    private final RentalPriceRepository rentalPriceRepository;
+    private final RentalQuoteService rentalQuoteService;
     private final VehicleSearchService searchService;
 
     public AuthController(RegistrationService registrationService,
                           VehicleModelService vehicleModelService,
-                          RentalPriceRepository rentalPriceRepository,
+                          RentalQuoteService rentalQuoteService,
                           VehicleSearchService searchService) {
         this.registrationService = registrationService;
         this.vehicleModelService = vehicleModelService;
-        this.rentalPriceRepository = rentalPriceRepository;
+        this.rentalQuoteService = rentalQuoteService;
         this.searchService = searchService;
     }
 
@@ -73,7 +71,7 @@ public class AuthController {
             return "redirect:/admin";
         }
         if (authentication.getAuthorities().stream().anyMatch(a -> "ROLE_CUSTOMER".equals(a.getAuthority()))
-                && session.getAttribute(com.example.QuanLyChoThueXeDien.rental.controllers.BookingSession.SELECTION) != null) {
+                && BookingSession.getSelection(session) != null) {
             return "redirect:/bookings/confirm";
         }
         return "redirect:/home";
@@ -120,12 +118,7 @@ public class AuthController {
                 .toList();
 
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
-        Map<Integer, BigDecimal> dailyRates = new HashMap<>();
-
-        for (RentalPrice price : rentalPriceRepository.findEffectivePrices(today)) {
-            Integer modelId = price.getVehicleModel().getModelId();
-            dailyRates.putIfAbsent(modelId, price.getDailyRate());
-        }
+        Map<Integer, BigDecimal> dailyRates = rentalQuoteService.displayDailyRates(today);
 
         vehicleModels= vehicleModels.stream()
                         .filter(item->dailyRates.get(item.getModelId())!=null)

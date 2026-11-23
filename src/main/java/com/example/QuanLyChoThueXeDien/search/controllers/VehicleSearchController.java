@@ -14,7 +14,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import jakarta.servlet.http.HttpSession;
-import com.example.QuanLyChoThueXeDien.rental.controllers.BookingSession;
+import com.example.QuanLyChoThueXeDien.session.BookingSession;
 import com.example.QuanLyChoThueXeDien.rental.dtos.BookingForm;
 
 @Controller
@@ -61,7 +61,7 @@ public class VehicleSearchController {
                     selection.setVehicleId(selectVehicleId); selection.setStationId(form.getStationId());
                     selection.setCategoryId(form.getCategoryId()); selection.setModelId(form.getModelId());
                     selection.setStartAt(form.getStartAt()); selection.setEndAt(form.getEndAt());
-                    session.setAttribute(BookingSession.SELECTION, selection);
+                    BookingSession.saveSelection(session, selection);
                     return "redirect:/bookings/confirm";
                 }
                 model.addAttribute("searchSucceeded", true);

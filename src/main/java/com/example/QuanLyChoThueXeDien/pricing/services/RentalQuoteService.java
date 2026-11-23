@@ -6,14 +6,22 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.math.*;
 import java.time.*;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class RentalQuoteService {
     private final RentalPriceRepository prices;
 
-
+    public Map<Integer, BigDecimal> displayDailyRates(LocalDate date) {
+        Map<Integer, BigDecimal> dailyRates = new HashMap<>();
+        for (RentalPrice price : prices.findEffectivePrices(date)) {
+            dailyRates.putIfAbsent(price.getVehicleModel().getModelId(), price.getDailyRate());
+        }
+        return dailyRates;
+    }
 
     public BigDecimal dailyRate(Integer modelId, LocalDate pickupDate) {
         return requireRate(prices.findEffectiveForModel(modelId, pickupDate));

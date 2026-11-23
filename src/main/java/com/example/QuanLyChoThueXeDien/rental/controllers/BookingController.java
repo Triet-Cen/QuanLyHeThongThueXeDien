@@ -2,6 +2,7 @@ package com.example.QuanLyChoThueXeDien.rental.controllers;
 
 import com.example.QuanLyChoThueXeDien.rental.dtos.*;
 import com.example.QuanLyChoThueXeDien.rental.services.*;
+import com.example.QuanLyChoThueXeDien.session.BookingSession;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,10 +32,8 @@ public class BookingController {
 
     @GetMapping("/confirm")
     public String confirm(Principal principal, HttpSession session, Model model) {
-        Object selected = session.getAttribute(BookingSession.SELECTION); /*Tác dụng là đọc
-        lựa chọn của khách hàng đã lưu trong BookingSession*/
-        if (!(selected instanceof BookingForm form)) return "redirect:/home#vehicle-search";
-        model.addAttribute("bookingForm", form.copy());
+        BookingForm form = BookingSession.getSelection(session);
+        if (form == null) return "redirect:/home#vehicle-search";
         return render(principal, session, model, form);
     }
 
@@ -105,7 +104,7 @@ public class BookingController {
     private String render(Principal principal, HttpSession session, Model model, BookingForm form) {
         model.addAttribute("email", principal.getName());
         model.addAttribute("bookingForm", form.copy());
-        session.setAttribute(BookingSession.SELECTION, form.copy());
+        BookingSession.saveSelection(session, form);
         try {
             BookingQuote quote = service.quote(principal.getName(), form);
             model.addAttribute("quote", quote);

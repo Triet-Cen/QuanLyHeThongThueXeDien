@@ -3,6 +3,7 @@ package com.example.QuanLyChoThueXeDien.rental;
 import com.example.QuanLyChoThueXeDien.auth.services.CustomUserDetailsService;
 import com.example.QuanLyChoThueXeDien.config.SecurityConfig;
 import com.example.QuanLyChoThueXeDien.rental.controllers.*;
+import com.example.QuanLyChoThueXeDien.session.BookingSession;
 import com.example.QuanLyChoThueXeDien.rental.dtos.*;
 import com.example.QuanLyChoThueXeDien.rental.services.*;
 import com.example.QuanLyChoThueXeDien.pricing.services.RentalQuoteService;
@@ -69,7 +70,7 @@ class BookingSecurityTests {
     }
     @Test void confirmationRendersServerPriceAndCsrf() throws Exception {
         BookingForm form = selection(); MockHttpSession session = new MockHttpSession();
-        session.setAttribute(BookingSession.SELECTION, form);
+        BookingSession.saveSelection(session, form);
         when(service.quote(eq("a"), any())).thenReturn(quote(form));
         mvc.perform(get("/bookings/confirm").session(session).with(user("a").roles("CUSTOMER")))
             .andExpect(status().isOk())

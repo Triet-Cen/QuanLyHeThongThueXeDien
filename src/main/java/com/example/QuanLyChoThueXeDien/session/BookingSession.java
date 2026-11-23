@@ -1,12 +1,13 @@
-package com.example.QuanLyChoThueXeDien.rental.controllers;
+package com.example.QuanLyChoThueXeDien.session;
 
-import com.example.QuanLyChoThueXeDien.rental.dtos.*;
+import com.example.QuanLyChoThueXeDien.rental.dtos.BookingForm;
+import com.example.QuanLyChoThueXeDien.rental.dtos.BookingQuote;
 import jakarta.servlet.http.HttpSession;
 import java.util.*;
 
 
 public class BookingSession {
-    public static final String SELECTION = "bookingSelection";
+    private static final String SELECTION = "bookingSelection";
     //Đây là hằng số tên khóa, dùng để lưu và lấy BookingForm trong HttpSession:
     //Khi khách đăng nhập để xác nhận đơn thuê đó, session này có thể lưu lại để kháCH tiếp tục đặt chiếc xe đó
 
@@ -15,6 +16,14 @@ public class BookingSession {
     private final String owner;
 
     public BookingSession(String owner) { this.owner = owner; }
+
+    public static BookingForm getSelection(HttpSession session) {
+        return session.getAttribute(SELECTION) instanceof BookingForm form ? form : null;
+    }
+
+    public static void saveSelection(HttpSession session, BookingForm form) {
+        session.setAttribute(SELECTION, form.copy());
+    }
 
     public synchronized String add(BookingQuote quote) {
         String key = UUID.randomUUID().toString(); //tạo mã mới cho báo giá
