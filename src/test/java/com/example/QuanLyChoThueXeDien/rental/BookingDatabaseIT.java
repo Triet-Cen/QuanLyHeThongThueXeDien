@@ -50,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringJUnitConfig(BookingDatabaseIT.Config.class)
 @TestPropertySource(properties = {"VNPAY_TMN_CODE=TEST","VNPAY_HASH_SECRET=fixture-only",
     "VNPAY_URL=https://gateway.invalid/pay","VNPAY_RETURN_URL=https://merchant.invalid/return",
-    "VNPAY_IPN_URL=https://merchant.invalid/ipn"})
+    "VNPAY_IPN_URL=https://merchant.invalid/ipn","VNPAY_FEE_ATTEMPT_MINUTES=30"})
 class BookingDatabaseIT {
     @Configuration @EnableTransactionManagement
     @EnableJpaRepositories(basePackages = "com.example.QuanLyChoThueXeDien")
@@ -121,10 +121,13 @@ class BookingDatabaseIT {
             Station station = new Station("Test station", "Test address", "0900000000", "ACTIVE"); em.persist(station);
             Vehicle x = vehicle(model, station, "X-" + suffix); Vehicle y = vehicle(model, station, "Y-" + suffix);
             em.persist(new RentalPrice(model, new BigDecimal("1200000"), LocalDate.of(2029,1,1), null));
-            Coupon coupon = new Coupon(); String code = "TEST-" + suffix;
-            ReflectionTestUtils.setField(coupon,"code",code); ReflectionTestUtils.setField(coupon,"percent",BigDecimal.TEN);
-            ReflectionTestUtils.setField(coupon,"startsAt",start.minusDays(2)); ReflectionTestUtils.setField(coupon,"endsAt",start.plusYears(1));
-            ReflectionTestUtils.setField(coupon,"remainingQuantity",1); ReflectionTestUtils.setField(coupon,"status","ACTIVE"); em.persist(coupon);
+            String code = "TEST-" + suffix;
+            em.createNativeQuery("""
+                INSERT INTO ma_giam_gia
+                    (MaGiamGia,TenChuongTrinh,PhanTramGiam,NgayBatDau,NgayKetThuc,SoLuongConLai,TrangThai)
+                VALUES (:code,'Integration test',10,:starts,:ends,1,'ACTIVE')
+                """).setParameter("code",code).setParameter("starts",start.minusDays(2))
+                .setParameter("ends",start.plusYears(1)).executeUpdate();
             em.flush();
             return new Fixture(a.getEmail(),b.getEmail(),ca.getCustomerId(),cb.getCustomerId(),a.getAccountId(),b.getAccountId(),
                 x.getVehicleId(),y.getVehicleId(),model.getModelId(),station.getStationId(),category.getCategoryId(),code);
@@ -209,9 +212,15 @@ class BookingDatabaseIT {
             var form = form(fixture.x(),start);
             form.setCouponCode(fixture.coupon());
             rentalId = service.create(fixture.a(),service.quote(fixture.a(),form));
-            var invoice = payments.getInvoice(fixture.a(),rentalId,false);
-            payments.startPayment(fixture.a(),rentalId,false,invoice.key(),UUID.randomUUID(),"127.0.0.1");
-            ref = db.queryForObject("select txn_ref from giao_dich_thanh_toan where MaDonThue=?",String.class,rentalId);
+            startAttempt(false);
+        }
+
+        void startAttempt(boolean fees) throws Exception {
+            var invoice = payments.getInvoice(fixture.a(),rentalId,fees);
+            var request = UUID.randomUUID();
+            payments.startPayment(fixture.a(),rentalId,fees,invoice.key(),request,"127.0.0.1");
+            ref = db.queryForObject("select txn_ref from giao_dich_thanh_toan where MaDonThue=? and request_key=?",
+                String.class,rentalId,request.toString());
             String providerId = db.queryForObject("select MaGD from giao_dich_thanh_toan where txn_ref=?",String.class,ref);
             var fields = new TreeMap<String,String>();
             fields.put("vnp_Amount",invoice.amount().movePointRight(2).toBigIntegerExact().toString());
@@ -252,13 +261,116 @@ class BookingDatabaseIT {
             assertEquals("NEEDS_RECONCILIATION",payments.getPaymentResult(fixture.a(),ref).status());
         }
 
+        @Test void validReturnConfirmsBookingAndLaterIpnDoesNotAllocateAgain() {
+            var result = payments.handleReturn(fixture.a(),ref,callback);
+            assertEquals("SUCCESS",result.status());
+            assertEquals("BOOKED",result.rentalStatus());
+            assertEquals("SUCCESS",payments.handleReturn(fixture.a(),ref,callback).status());
+            assertEquals("00",payments.handleIpn(callback));
+            assertEquals(1,allocated());
+            assertEquals(0,tx.execute(s -> em.find(Coupon.class,fixture.coupon()).getRemainingQuantity()).intValue());
+        }
+
+        @Test void returnChecksOwnerAndSignatureBeforeConfirmingPayment() {
+            assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> payments.handleReturn(fixture.b(),ref,callback));
+            var tampered = new HashMap<>(callback);
+            tampered.put("vnp_Amount",new String[]{"100"});
+            assertEquals("PENDING",payments.handleReturn(fixture.a(),ref,tampered).status());
+            assertEquals("PENDING",payments.handleReturn(fixture.a(),ref,Map.of("vnp_ResponseCode",new String[]{"00"})).status());
+            assertEquals(0,allocated());
+        }
+
+        @Test void successfulReturnCannotRestoreExpiredBooking() {
+            clock.instant.updateAndGet(t -> t.plusSeconds(900));
+            service.expire(rentalId);
+            var result = payments.handleReturn(fixture.a(),ref,callback);
+            assertEquals("NEEDS_RECONCILIATION",result.status());
+            assertEquals("CANCELLED",result.rentalStatus());
+            assertEquals(0,allocated());
+        }
+
+        @Nested class ReturnFees {
+            int staffAccount;
+            int fee;
+            @BeforeEach void returnedVehicle() throws Exception {
+                assertEquals("00",payments.handleIpn(callback));
+                staffAccount = tx.execute(s -> {
+                    var staff = account(UUID.randomUUID()+"@example.invalid");
+                    staff.setRole("STAFF");
+                    return staff.getAccountId();
+                });
+                db.update("insert into nhan_vien(MaTK,MaTram,HoTen,SoDienThoai,TrangThaiLamViec) values(?,?,'Test staff','0900000000','ACTIVE')",
+                    staffAccount,fixture.station());
+                db.update("update don_thue_xe set TrangThaiDon='RENTED' where MaDonThue=?",rentalId);
+                db.update("update xe set TrangThaiXe='Rented' where MaXe=?",fixture.x());
+                db.update("""
+                    insert into bien_ban_tra_xe(MaDonThue,MaNVNhan,ThoiGianTraThucTe,MucPinKhiTra,TinhTrangXe,DuongDanHinhAnh)
+                    select ?,MaNV,?,90,'Test','test.jpg' from nhan_vien where MaTK=?
+                    """,rentalId,start.plusDays(1),staffAccount);
+                clock.instant.updateAndGet(t -> t.plusSeconds(3*86400));
+                fee = addFee("Broken light");
+                startAttempt(true);
+            }
+
+            int addFee(String reason) {
+                db.update("insert into phi_phat_sinh(MaDonThue,LoaiPhi,SoTien,LyDo,TrangThaiThanhToan) values(?,'DAMAGE',25000,?,'UNPAID')",
+                    rentalId,reason);
+                return db.queryForObject("select MaPhi from phi_phat_sinh where MaDonThue=? and LyDo=?",Integer.class,rentalId,reason);
+            }
+            String feeStatus(int id) {
+                return db.queryForObject("select TrangThaiThanhToan from phi_phat_sinh where MaPhi=?",String.class,id);
+            }
+            @Test void paysOnlyFeesShownOnInvoice() {
+                int later = addFee("Broken mirror");
+                assertEquals("SUCCESS",payments.handleReturn(fixture.a(),ref,callback).status());
+                assertEquals("PAID",feeStatus(fee));
+                assertEquals("UNPAID",feeStatus(later));
+            }
+            @Test void changedFeeGoesToReview() {
+                db.update("update phi_phat_sinh set SoTien=26000 where MaPhi=?",fee);
+                assertEquals("00",payments.handleIpn(callback));
+                assertEquals("UNPAID",feeStatus(fee));
+                assertEquals("NEEDS_RECONCILIATION",payments.getPaymentResult(fixture.a(),ref).status());
+            }
+            @Test void twoReceiptsPayOneFeeOnce() throws Exception {
+                var first = callback;
+                String firstRef = ref;
+                startAttempt(true);
+                assertEquals(List.of(0,0),race(()->Integer.valueOf(payments.handleIpn(first)),()->Integer.valueOf(payments.handleIpn(callback))));
+                assertEquals(Set.of("SUCCESS","NEEDS_RECONCILIATION"),Set.of(payments.getPaymentResult(fixture.a(),firstRef).status(),
+                    payments.getPaymentResult(fixture.a(),ref).status()));
+                assertEquals("PAID",feeStatus(fee));
+                assertEquals(1,db.queryForObject("select count(*) from payment_allocation where obligation=?",Integer.class,"FEE:"+fee));
+                assertEquals(0,new BigDecimal("25000").compareTo(db.queryForObject(
+                    "select sum(amount) from payment_allocated_cashflow where MaDonThue=? and LoaiThanhToan='EXTRA_FEE'",BigDecimal.class,rentalId)));
+            }
+            @Test void allFeesPaidAwaitStaffCompletion() {
+                assertEquals("00",payments.handleIpn(callback));
+                assertEquals("PAID",feeStatus(fee));
+                assertEquals("RENTED",service.view(fixture.a(),rentalId).getStatus());
+                assertEquals("Rented",db.queryForObject("select TrangThaiXe from xe where MaXe=?",String.class,fixture.x()));
+            }
+            @AfterEach void removeReturnRecord() {
+                tx.executeWithoutResult(s -> {
+                    db.update("delete from bien_ban_tra_xe where MaDonThue=?",rentalId);
+                    db.update("delete from thong_bao where MaTKNhan=?",staffAccount);
+                    db.update("delete from nhan_vien where MaTK=?",staffAccount);
+                    db.update("delete from tai_khoan where MaTK=?",staffAccount);
+                });
+            }
+        }
         @AfterEach void removePaymentFixture() {
-            if (ref == null) return;
+            if (rentalId == 0) return;
             tx.executeWithoutResult(s -> {
-                db.update("delete from payment_receipt where signature in (select signature from payment_ipn where ref=?)",ref);
-                db.update("delete from payment_ipn where ref=?",ref);
-                db.update("delete from payment_allocation where obligation=?","RENTAL:"+rentalId);
-                db.update("delete from giao_dich_thanh_toan where txn_ref=?",ref);
+                for (String attempt : db.queryForList("select txn_ref from giao_dich_thanh_toan where MaDonThue=?",String.class,rentalId)) {
+                    db.update("delete from payment_receipt where signature in (select signature from payment_ipn where ref=?)",attempt);
+                    db.update("delete from payment_ipn where ref=?",attempt);
+                    db.update("delete from payment_fee_snapshot where txn_ref=?",attempt);
+                }
+                db.update("delete from payment_allocation where transaction_id in (select MaGD from giao_dich_thanh_toan where MaDonThue=?)",rentalId);
+                db.update("delete from giao_dich_thanh_toan where MaDonThue=?",rentalId);
+                db.update("delete from phi_phat_sinh where MaDonThue=?",rentalId);
             });
         }
     }

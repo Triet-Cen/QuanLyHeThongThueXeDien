@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="|Đặt ${vehicleModel.modelName} - E-Vehicle Rental|">Đặt xe</title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}">
+    <link rel="stylesheet" th:href="@{/css/home.css}">
+</head>
+<body class="customer-page home-page">
+<nav class="customer-navbar">
+    <a class="brand-link" th:href="@{/home}">E-Vehicle Rental</a>
+    <div class="customer-menu">
+        <a th:href="@{/home#vehicle-list}">Quay lại danh sách mẫu xe</a>
+    </div>
+</nav>
+<main class="customer-container home-container">
+    <section class="glass-card vehicle-section search-section" aria-labelledby="model-booking-title">
+        <div class="section-head">
+            <h1 id="model-booking-title" th:text="|Đặt ${vehicleModel.modelName}|">Đặt xe</h1>
+        </div>
+
+        <p class="home-empty-state" th:if="${#lists.isEmpty(stations)}">Mẫu xe này hiện chưa mở đặt tại trạm nào.</p>
+
+        <form class="vehicle-search-form" method="get" th:action="@{/vehicles}"
+              th:object="${searchForm}" th:unless="${#lists.isEmpty(stations)}">
+            <input type="hidden" name="bookModelId" th:value="${vehicleModel.modelId}">
+            <input type="hidden" name="checkAvailability" value="true">
+
+            <div class="search-errors" role="alert" th:if="${checkAvailability and #fields.hasAnyErrors()}">
+                <ul><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
+            </div>
+            <div class="search-field">
+                <label for="stationId">Trạm nhận xe</label>
+                <select th:field="*{stationId}" required>
+                    <option value="">Chọn trạm nhận xe</option>
+                    <option th:each="station : ${stations}" th:value="${station.stationId}"
+                            th:text="${station.stationName}"></option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label for="startAt">Ngày giờ nhận xe</label>
+                <input type="datetime-local" step="1" th:field="*{startAt}" required>
+            </div>
+            <div class="search-field">
+                <label for="endAt">Ngày giờ trả xe</label>
+                <input type="datetime-local" step="1" th:field="*{endAt}" required>
+            </div>
+            <div class="search-actions">
+                <button type="submit" class="search-submit">Tiếp tục đặt xe</button>
+            </div>
+        </form>
+    </section>
+</main>
+</body>
+</html>

@@ -5,10 +5,12 @@ import com.example.QuanLyChoThueXeDien.search.dtos.VehicleSearchForm;
 import com.example.QuanLyChoThueXeDien.search.services.VehicleSearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
 import java.util.List;
@@ -22,7 +24,7 @@ import com.example.QuanLyChoThueXeDien.rental.dtos.BookingForm;
 public class VehicleSearchController {
     private final VehicleSearchService searchService;
 
-    @GetMapping("/vehicles")
+    @GetMapping(value = "/vehicles", params = "!bookModelId")
     public String search(
             @Valid @ModelAttribute("searchForm") VehicleSearchForm form,
             BindingResult errors,
@@ -57,12 +59,7 @@ public class VehicleSearchController {
                 if (selectVehicleId != null) {
                     if (results.stream().noneMatch(r -> r.vehicleId().equals(selectVehicleId)))
                         throw new IllegalArgumentException("Xe không còn phù hợp với lịch đã chọn. Vui lòng tìm lại.");
-                    BookingForm selection = new BookingForm();
-                    selection.setVehicleId(selectVehicleId); selection.setStationId(form.getStationId());
-                    selection.setCategoryId(form.getCategoryId()); selection.setModelId(form.getModelId());
-                    selection.setStartAt(form.getStartAt()); selection.setEndAt(form.getEndAt());
-                    BookingSession.saveSelection(session, selection);
-                    return "redirect:/bookings/confirm";
+                    return confirmSelection(form, selectVehicleId, session);
                 }
                 model.addAttribute("searchSucceeded", true);
             } catch (IllegalArgumentException exception) {
@@ -71,5 +68,48 @@ public class VehicleSearchController {
         }
 
         return "home";
+    }
+
+    @GetMapping(value = "/vehicles", params = "bookModelId")
+    public String bookModel(@RequestParam Integer bookModelId,
+                            @RequestParam(defaultValue = "false") boolean checkAvailability,
+                            @Valid @ModelAttribute("searchForm") VehicleSearchForm form, BindingResult errors,
+                            HttpSession session, Model model) {
+        var selectedModel = searchService.findBookableModel(bookModelId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mẫu xe không còn mở đặt."));
+        var stations = searchService.bookingStations(bookModelId);
+        model.addAttribute("vehicleModel", selectedModel);
+        model.addAttribute("stations", stations);
+        model.addAttribute("checkAvailability", checkAvailability);
+
+        if (checkAvailability && !errors.hasErrors()) {
+            form.setModelId(bookModelId);
+            form.setCategoryId(null);
+            try {
+                var available = searchService.search(form);
+                var bookable = available.stream().filter(vehicle -> vehicle.estimatedAmount() != null).findFirst();
+                if (bookable.isPresent()) {
+                    return confirmSelection(form, bookable.get().vehicleId(), session);
+                }
+                errors.reject("booking.unavailable", available.isEmpty()
+                        ? "Mẫu xe này đã hết xe trong lịch đã chọn. Vui lòng đổi trạm hoặc thời gian."
+                        : "Mẫu xe này chưa có giá thuê cho ngày nhận đã chọn. Vui lòng đổi lịch thuê.");
+            } catch (IllegalArgumentException exception) {
+                errors.reject("booking.invalid", exception.getMessage());
+            }
+        }
+        return "user/model-booking";
+    }
+
+    private String confirmSelection(VehicleSearchForm form, Integer vehicleId, HttpSession session) {
+        BookingForm selection = new BookingForm();
+        selection.setVehicleId(vehicleId);
+        selection.setStationId(form.getStationId());
+        selection.setCategoryId(form.getCategoryId());
+        selection.setModelId(form.getModelId());
+        selection.setStartAt(form.getStartAt());
+        selection.setEndAt(form.getEndAt());
+        BookingSession.saveSelection(session, selection);
+        return "redirect:/bookings/confirm";
     }
 }

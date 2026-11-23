@@ -3,7 +3,9 @@ package com.example.QuanLyChoThueXeDien.payment.controllers;
 import com.example.QuanLyChoThueXeDien.payment.services.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.transaction.TransactionException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -15,6 +17,7 @@ import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentController {
     private final PaymentService payments;
 
@@ -25,6 +28,8 @@ public class PaymentController {
             model.addAttribute("invoice",payments.getInvoice(user.getName(),id,fees));
             model.addAttribute("requestKey",UUID.randomUUID());
             return "user/payment-invoice";
+        } catch (BadSqlGrammarException failure) {
+            return showMissingPaymentTables(id, flash, failure);
         } catch (IllegalArgumentException invalid) {
             flash.addFlashAttribute("errorMessage",invalid.getMessage());
             return "redirect:/bookings/" + id;
@@ -36,10 +41,19 @@ public class PaymentController {
                         @RequestParam UUID requestKey, Principal user, HttpServletRequest request, RedirectAttributes flash) {
         try {
             return "redirect:" + payments.startPayment(user.getName(),id,fees,invoiceKey,requestKey,request.getRemoteAddr());
+        } catch (BadSqlGrammarException failure) {
+            return showMissingPaymentTables(id, flash, failure);
         } catch (IllegalArgumentException invalid) {
             flash.addFlashAttribute("errorMessage",invalid.getMessage());
             return "redirect:/bookings/" + id + "/invoice?fees=" + fees;
         }
+    }
+
+    private String showMissingPaymentTables(int id, RedirectAttributes flash, BadSqlGrammarException failure) {
+        if (failure.getSQLException().getErrorCode() != 1146) throw failure;
+        log.error("VNPay unavailable for booking {} because a required database table is missing", id, failure);
+        flash.addFlashAttribute("errorMessage", "Chưa thể thanh toán qua VNPay vì cơ sở dữ liệu chưa được chuẩn bị cho thanh toán.");
+        return "redirect:/bookings/" + id;
     }
 
     @GetMapping("/payments/vnpay/ipn")
@@ -63,8 +77,9 @@ public class PaymentController {
     }
 
     @GetMapping("/payments/vnpay/return")
-    public String showPaymentResult(@RequestParam("vnp_TxnRef") String ref, Principal user, Model model) {
-        model.addAttribute("result",payments.getPaymentResult(user.getName(),ref));
+    public String showPaymentResult(@RequestParam("vnp_TxnRef") String ref, Principal user,
+                                    HttpServletRequest request, Model model) {
+        model.addAttribute("result",payments.handleReturn(user.getName(),ref,request.getParameterMap()));
         return "user/payment-result";
     }
 

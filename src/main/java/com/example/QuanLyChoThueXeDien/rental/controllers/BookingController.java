@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.security.Principal;
+import java.util.UUID;
+import com.example.QuanLyChoThueXeDien.payment.services.PaymentService;
 
 @Controller
 @RequiredArgsConstructor //truyền service và clock vào.
@@ -85,7 +87,12 @@ public class BookingController {
     public String view(@PathVariable Integer id, Principal principal, Model model) {
         var rental = service.view(principal.getName(), id);
         model.addAttribute("rental", rental);
-        model.addAttribute("activeHold", rental.hasActiveHold(clock.now()));
+        boolean activeHold = rental.hasActiveHold(clock.now());
+        model.addAttribute("activeHold", activeHold);
+        if (activeHold) {
+            model.addAttribute("invoice", PaymentService.rentalInvoice(rental));
+            model.addAttribute("requestKey", UUID.randomUUID());
+        }
         model.addAttribute("serverNow", clock.now().atZone(RentalClock.ZONE).toInstant().toEpochMilli());
         model.addAttribute("holdUntil", rental.getHoldExpiresAt().atZone(RentalClock.ZONE).toInstant().toEpochMilli());
         model.addAttribute("email", principal.getName());

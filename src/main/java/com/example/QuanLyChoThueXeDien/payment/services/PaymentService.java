@@ -51,10 +51,15 @@ public class PaymentService {
         } else {
             if (!r.hasActiveHold(clock.now()) || payments.isRentalPaid(r.getRentalId()))
                 throw new IllegalArgumentException("Đơn đã hết hạn hoặc không còn chờ thu tiền thuê.");
-            total = r.getTotalAmount();
+            return rentalInvoice(r);
         }
         BigDecimal amount = total.setScale(0,RoundingMode.HALF_UP);
         return new PaymentInvoice(r,fees,lines,amount,buildInvoiceKey(r.getRentalId(),fees,amount,lines));
+    }
+
+    public static PaymentInvoice rentalInvoice(Rental rental) {
+        BigDecimal amount = rental.getTotalAmount().setScale(0,RoundingMode.HALF_UP);
+        return new PaymentInvoice(rental,false,List.of(),amount,buildInvoiceKey(rental.getRentalId(),false,amount,List.of()));
     }
 
     // Length-prefix variable text so fee descriptions cannot collide at a field boundary.
@@ -98,7 +103,22 @@ public class PaymentService {
             log.warn("Rejected malformed or unauthenticated VNPay IPN");
             return "97";
         }
-        var event = verified.get();
+        return processNotification(verified.get());
+    }
+
+    public PaymentResult handleReturn(String email, String ref, Map<String,String[]> payload) {
+        PaymentResult current = getPaymentResult(email,ref);
+        if (!payload.containsKey("vnp_SecureHash")) return current;
+
+        var event = gateway.verifyIpn(payload)
+            .filter(callback -> ref.equals(callback.ref()) && callback.successful());
+        if (event.isEmpty()) return current;
+
+        processNotification(event.get());
+        return getPaymentResult(email,ref);
+    }
+
+    private String processNotification(VnPayEvent event) {
         var lookup = payments.findAttemptByRef(event.ref());
         Rental rental = lookup.isEmpty() ? null : bookings.lockForPaymentNotification(lookup.get().rental());
         // Read again after acquiring the same locks as timeout/cancel.

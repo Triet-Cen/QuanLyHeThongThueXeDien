@@ -12,9 +12,12 @@ import com.example.QuanLyChoThueXeDien.session.BookingSession;
 import com.example.QuanLyChoThueXeDien.rental.dtos.*;
 import com.example.QuanLyChoThueXeDien.rental.services.*;
 import com.example.QuanLyChoThueXeDien.pricing.services.RentalQuoteService;
+import com.example.QuanLyChoThueXeDien.search.controllers.VehicleSearchController;
+import com.example.QuanLyChoThueXeDien.search.services.VehicleSearchService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.context.annotation.*;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -26,7 +29,9 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 import java.math.BigDecimal;
+import java.sql.SQLSyntaxErrorException;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -37,11 +42,12 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 @ContextConfiguration(classes = BookingSecurityTests.Config.class)
 class BookingSecurityTests {
     @Configuration @EnableWebSecurity @EnableWebMvc
-    @Import({SecurityConfig.class, BookingController.class, RentalClock.class, PaymentController.class})
+    @Import({SecurityConfig.class, BookingController.class, RentalClock.class, PaymentController.class, VehicleSearchController.class})
     static class Config {
         @Bean CustomUserDetailsService users() { return mock(CustomUserDetailsService.class); }
         @Bean BookingService bookings() { return mock(BookingService.class); }
         @Bean PaymentService payments() { return mock(PaymentService.class); }
+        @Bean VehicleSearchService search() { return mock(VehicleSearchService.class); }
         @Bean org.thymeleaf.spring6.view.ThymeleafViewResolver views() {
             var resolver = new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
             resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setCharacterEncoding("UTF-8");
@@ -53,11 +59,38 @@ class BookingSecurityTests {
     @Autowired WebApplicationContext context;
     @Autowired BookingService service;
     @Autowired PaymentService payments;
+    @Autowired VehicleSearchService search;
     MockMvc mvc;
-    @BeforeEach void setup() { reset(service); mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
+    @BeforeEach void setup() { reset(service, payments); mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
 
     @Test void anonymousMustLoginBeforeConfirmation() throws Exception {
         mvc.perform(get("/bookings/confirm")).andExpect(status().is3xxRedirection()); verifyNoInteractions(service);
+    }
+
+    @Test void guestCanChooseDatesForSelectedModelBeforeLogin() throws Exception {
+        var vehicleModel = mock(com.example.QuanLyChoThueXeDien.VehicleModel.entities.VehicleModel.class);
+        when(vehicleModel.getModelId()).thenReturn(4);
+        when(vehicleModel.getModelName()).thenReturn("VF 5");
+        var station = new com.example.QuanLyChoThueXeDien.station.entities.Station();
+        station.setStationId(2);
+        station.setStationName("Trạm A");
+        when(search.findBookableModel(4)).thenReturn(java.util.Optional.of(vehicleModel));
+        when(search.bookingStations(4)).thenReturn(java.util.List.of(station));
+        mvc.perform(get("/vehicles").param("bookModelId","4"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Đặt VF 5")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Tiếp tục đặt xe")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"startAt\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"endAt\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("search-errors"))));
+    }
+    @Test void anonymousIpnReachesHandlerWhileReturnRequiresLogin() throws Exception {
+        when(payments.handleIpn(anyMap())).thenReturn("97");
+        mvc.perform(get("/payments/vnpay/ipn")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.RspCode").value("97"));
+        verify(payments).handleIpn(anyMap());
+        mvc.perform(get("/payments/vnpay/return").param("vnp_TxnRef","test"))
+            .andExpect(status().is3xxRedirection());
     }
     @Test void staffAndAdminCannotCreateCustomerOrder() throws Exception {
         for (String role : new String[]{"STAFF", "ADMIN"})
@@ -108,7 +141,10 @@ class BookingSecurityTests {
         r.setDailyRate(BigDecimal.TEN); r.setRentalAmount(BigDecimal.TEN); r.setDiscountAmount(BigDecimal.ZERO); r.setTotalAmount(BigDecimal.TEN);
         when(service.view("a",8)).thenReturn(r); when(service.own("a")).thenReturn(java.util.List.of(r));
         mvc.perform(get("/bookings/8").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-hold-countdown")));
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-hold-countdown")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("action=\"/bookings/8/vnpay\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Thanh toán qua VNPay")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(PaymentService.rentalInvoice(r).key())));
         mvc.perform(get("/bookings").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk());
         when(payments.getInvoice("a",8,false)).thenReturn(new PaymentInvoice(r,false,java.util.List.of(),BigDecimal.TEN,"snapshot"));
         mvc.perform(get("/bookings/8/invoice").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
@@ -125,10 +161,32 @@ class BookingSecurityTests {
         mvc.perform(post("/bookings/8/vnpay").with(user("a").roles("STAFF")).with(csrf())).andExpect(status().isForbidden());
     }
 
+    @Test void missingPaymentTableReturnsCustomerToBookingWithMessage() throws Exception {
+        var missingTable = new BadSqlGrammarException("check payment", "SELECT ...",
+            new SQLSyntaxErrorException("Table 'payment_allocation' doesn't exist", "42S02", 1146));
+        when(payments.getInvoice("a",8,false)).thenThrow(missingTable);
+        when(payments.startPayment(eq("a"),eq(8),eq(false),eq("snapshot"),any(UUID.class),anyString()))
+            .thenThrow(missingTable);
+
+        for (var request : java.util.List.of(get("/bookings/8/invoice"),
+                post("/bookings/8/vnpay").with(csrf()).param("fees","false").param("invoiceKey","snapshot")
+                    .param("requestKey",UUID.randomUUID().toString()))) {
+            mvc.perform(request.with(user("a").roles("CUSTOMER")))
+                .andExpect(redirectedUrl("/bookings/8"))
+                .andExpect(flash().attribute("errorMessage",
+                    "Chưa thể thanh toán qua VNPay vì cơ sở dữ liệu chưa được chuẩn bị cho thanh toán."));
+        }
+    }
+
     @Test void vp06_14_returnWithForgedSuccessDisplaysPersistedPending() throws Exception {
-        when(payments.getPaymentResult("a","ref")).thenReturn(new PaymentResult(8,"ref","PENDING","PENDING_PAYMENT",BigDecimal.TEN));
+        when(payments.handleReturn(eq("a"),eq("ref"),argThat(params ->
+                "00".equals(params.get("vnp_ResponseCode")[0]))))
+            .thenReturn(new PaymentResult(8,"ref","PENDING","PENDING_PAYMENT",BigDecimal.TEN));
         mvc.perform(get("/payments/vnpay/return?vnp_TxnRef=ref&vnp_ResponseCode=00").with(user("a").roles("CUSTOMER")))
-            .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chờ xác nhận")));
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Đang chờ VNPay xác nhận")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("href=\"/bookings/8\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Về chi tiết đơn thuê")));
     }
 
     @Test void reconciliationViewAndNotesAreAdminOnly() throws Exception {

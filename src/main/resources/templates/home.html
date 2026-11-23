@@ -169,7 +169,7 @@
                 <p class="home-eyebrow">Khám phá bộ sưu tập</p>
                 <h2 id="vehicle-list-title">Mẫu xe điện</h2>
             </div>
-            <p class="home-section-description">Đây là danh mục mẫu xe. Chọn trạm và thời gian ở trên để kiểm tra xe còn lịch.</p>
+            <p class="home-section-description">Chọn mẫu xe để đặt theo lịch của bạn.</p>
         </div>
 
         <div class="home-empty-state" th:if="${#lists.isEmpty(vehicleModels)}">
@@ -205,7 +205,10 @@
                            th:text="|${#numbers.formatDecimal(price, 1, 'POINT', 2, 'COMMA')} đ/ngày|">
                             700.000,00 đ/ngày
                         </p>
-                        <a class="btn-ghost model-detail-link"
+                        <a class="btn-gold model-card-action" th:href="@{/vehicles(bookModelId=${car.modelId})}">
+                            Đặt xe
+                        </a>
+                        <a class="btn-ghost model-card-action"
                            th:href="@{/models/{id}(id=${car.modelId})}">
                             Xem chi tiết
                         </a>

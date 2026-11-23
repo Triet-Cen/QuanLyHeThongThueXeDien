@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.List;
+import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -55,6 +56,36 @@ class BookingNavigationTests {
                 .param("startAt","2030-01-02T08:00:00").param("endAt","2030-01-03T08:00:00"))
             .andExpect(view().name("home")).andExpect(model().attributeHasErrors("searchForm"));
         assertNull(BookingSession.getSelection(session));
+    }
+
+    @Test void bookingFromModelUsesSelectedDatesAndAnAvailablePricedVehicle() throws Exception {
+        var search = mock(VehicleSearchService.class);
+        var model = new VehicleModel();
+        when(search.findBookableModel(4)).thenReturn(Optional.of(model));
+        when(search.bookingStations(4)).thenReturn(List.of());
+        when(search.search(argThat(form -> form.getModelId().equals(4) && form.getCategoryId() == null)))
+                .thenReturn(List.of(
+                        new VehicleSearchCard(6,"Xe X",null,"Brand",5,"EV","Trạm A",null,1,null,"Chưa có giá"),
+                        new VehicleSearchCard(7,"Xe X",null,"Brand",5,"EV","Trạm A",BigDecimal.TEN,1,BigDecimal.TEN,null)));
+        var mvc = MockMvcBuilders.standaloneSetup(new VehicleSearchController(search)).build();
+        var session = new MockHttpSession();
+
+        mvc.perform(get("/vehicles").session(session).param("bookModelId","4").param("checkAvailability","true")
+                        .param("modelId","99").param("categoryId","98").param("stationId","2")
+                        .param("startAt","2030-01-02T08:00:00").param("endAt","2030-01-03T09:00:00"))
+                .andExpect(redirectedUrl("/bookings/confirm"));
+        BookingForm selection = BookingSession.getSelection(session);
+        assertEquals(7,selection.getVehicleId());
+        assertEquals(4,selection.getModelId());
+        assertEquals(2,selection.getStationId());
+        assertEquals("2030-01-02T08:00",selection.getStartAt().toString());
+        assertEquals("2030-01-03T09:00",selection.getEndAt().toString());
+
+        doReturn(List.of()).when(search).search(any());
+        mvc.perform(get("/vehicles").param("bookModelId","4").param("checkAvailability","true")
+                        .param("stationId","2").param("startAt","2030-01-02T08:00:00").param("endAt","2030-01-03T09:00:00"))
+                .andExpect(view().name("user/model-booking"))
+                .andExpect(model().attributeHasErrors("searchForm"));
     }
 
     @Test void homeUsesFirstDisplayRateAndOmitsModelsWithoutPrice() throws Exception {

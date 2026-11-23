@@ -27,7 +27,15 @@
     </dl>
     <div th:if="${activeHold}" data-active-hold>
         <p>Thời gian còn lại: <strong data-hold-countdown th:attr="data-server-now=${serverNow},data-hold-until=${holdUntil}">Đang tính…</strong></p>
-        <a class="btn-primary" th:href="@{/bookings/{id}/invoice(id=${rental.rentalId})}">Xem hóa đơn tiền thuê</a>
+        <div class="booking-actions">
+            <form th:if="${invoice.amount.signum() > 0}" th:action="@{/bookings/{id}/vnpay(id=${rental.rentalId})}" method="post" data-booking-submit>
+                <input type="hidden" name="fees" value="false">
+                <input type="hidden" name="invoiceKey" th:value="${invoice.key}">
+                <input type="hidden" name="requestKey" th:value="${requestKey}">
+                <button class="btn-gold" type="submit">Thanh toán qua VNPay</button>
+            </form>
+            <a class="btn-ghost" th:href="@{/bookings/{id}/invoice(id=${rental.rentalId})}">Xem hóa đơn tiền thuê</a>
+        </div>
         <form th:action="@{/bookings/{id}/cancel(id=${rental.rentalId})}" method="post"><button class="btn-ghost" type="submit">Hủy đơn chờ thanh toán</button></form>
     </div>
     <a class="btn-ghost" th:if="${#strings.equalsIgnoreCase(rental.status,'RENTED')}" th:href="@{/bookings/{id}/invoice(id=${rental.rentalId},fees=true)}">Xem hóa đơn phí trả xe</a>

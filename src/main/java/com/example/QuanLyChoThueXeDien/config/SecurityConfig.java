@@ -3,6 +3,7 @@ package com.example.QuanLyChoThueXeDien.config;
 import com.example.QuanLyChoThueXeDien.auth.services.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -42,6 +43,7 @@ public class SecurityConfig {
                                 "/home",
                                 "/vehicles"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/payments/vnpay/ipn").permitAll()
                         .requestMatchers("/admin","/admin/**").hasRole("ADMIN")
                         .requestMatchers("/staff","/staff/**").hasRole("STAFF")
                         .requestMatchers("/bookings", "/bookings/**")

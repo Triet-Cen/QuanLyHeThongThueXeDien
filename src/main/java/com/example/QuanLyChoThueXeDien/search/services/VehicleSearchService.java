@@ -1,6 +1,7 @@
 package com.example.QuanLyChoThueXeDien.search.services;
 
 
+import com.example.QuanLyChoThueXeDien.VehicleModel.entities.VehicleModel;
 import com.example.QuanLyChoThueXeDien.VehicleModel.repositories.VehicleModelRepository;
 import com.example.QuanLyChoThueXeDien.category.repositories.VehicleCategoryRepository;
 import com.example.QuanLyChoThueXeDien.pricing.entities.RentalPrice;
@@ -9,6 +10,7 @@ import com.example.QuanLyChoThueXeDien.search.dtos.SearchOptions;
 import com.example.QuanLyChoThueXeDien.search.dtos.VehicleSearchCard;
 import com.example.QuanLyChoThueXeDien.search.dtos.VehicleSearchForm;
 import com.example.QuanLyChoThueXeDien.station.repositories.StationRepository;
+import com.example.QuanLyChoThueXeDien.station.entities.Station;
 import com.example.QuanLyChoThueXeDien.vehicle.entities.Vehicle;
 import com.example.QuanLyChoThueXeDien.vehicle.repositories.VehicleRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import com.example.QuanLyChoThueXeDien.rental.services.RentalClock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,6 +55,21 @@ public class VehicleSearchService {
         );
     }  /*Hàm options này lấy trạm, loại xe và mẫu xe không bị ẩn đi.
      Nó trả về 3 đối tượng trạm, loại xe và mẫu xe*/
+
+    public Optional<VehicleModel> findBookableModel(Integer modelId) {
+        return models.findByModelId(modelId)
+                .filter(m -> "ACTIVE".equals(m.getModelStatus()))
+                .filter(m -> "ACTIVE".equals(m.getCategory().getCategoryStatus()));
+    }
+
+    public List<Station> bookingStations(Integer modelId) {
+        return vehicles.findByVehicleModel_ModelIdAndStation_StationStatusOrderByVehicleIdAsc(modelId, "ACTIVE")
+                .stream()
+                .filter(vehicle -> !"MAINTENANCE".equalsIgnoreCase(vehicle.getVehicleStatus()))
+                .map(Vehicle::getStation)
+                .distinct()
+                .toList();
+    }
 
     public List<VehicleSearchCard> search(VehicleSearchForm form) {
         LocalDateTime now = clock.now();
@@ -147,10 +165,7 @@ public class VehicleSearchService {
         }
 
         if (form.getModelId() != null) {
-            var selected = models.findByModelId(form.getModelId())
-                    .filter(m -> "ACTIVE".equals(m.getModelStatus()))
-                    .filter(m -> "ACTIVE".equals(
-                            m.getCategory().getCategoryStatus()))
+            var selected = findBookableModel(form.getModelId())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Mẫu xe không tồn tại hoặc đã được ẩn."
                     ));
