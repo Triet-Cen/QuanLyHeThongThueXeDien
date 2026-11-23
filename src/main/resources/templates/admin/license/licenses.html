@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout ::
+        layout('Giấy phép lái xe', 'licenses', ~{::#license-list})}">
+<body>
+<section id="license-list" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2>Giấy phép lái xe khách hàng</h2>
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>Khách hàng</th>
+                <th>Số GPLX</th>
+                <th>Ngày hết hạn</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <tr th:each="license : ${licenses}">
+                <td>
+                    <strong th:text="${license.customer.fullName}"></strong>
+                    <br>
+                    <span th:text="${license.customer.account.email}"></span>
+                </td>
+                <td th:text="${license.licenseNumber}"></td>
+                <td th:text="${#temporals.format(
+                    license.expiryDate, 'dd/MM/yyyy')}"></td>
+                <td th:text="${license.verificationStatus}"></td>
+                <td>
+                    <a class="admin-button light"
+                       th:href="@{/admin/licenses/{id}(id=${license.licenseId})}">
+                        Xem và xét duyệt
+                    </a>
+                </td>
+            </tr>
+
+            <tr th:if="${#lists.isEmpty(licenses)}">
+                <td colspan="5">Chưa có GPLX được gửi.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

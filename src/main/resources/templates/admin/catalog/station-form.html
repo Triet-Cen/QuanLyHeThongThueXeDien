@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout(
+    ${stationId != null ? 'Sửa trạm xe' : 'Thêm trạm xe'},
+    'stations',
+    ~{::#station-form-content}
+)}">
+<body>
+<section id="station-form-content" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2 th:text="${stationId != null ? 'Sửa trạm xe' : 'Thêm trạm xe'}">
+            Thêm trạm xe
+        </h2>
+    </div>
+
+    <form class="admin-form"
+          th:action="${stationId != null}
+          ? @{/admin/stations/{stationId}(stationId=${stationId})}
+          : @{/admin/stations}"
+          th:object="${stationForm}"
+          method="post">
+
+        <div class="admin-form-grid">
+            <label class="admin-field">
+                <span>Tên trạm</span>
+                <input type="text" th:field="*{stationName}" maxlength="60" required>
+                <small th:errors="*{stationName}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Địa chỉ</span>
+                <input type="text" th:field="*{stationAddress}" maxlength="60" required>
+                <small th:errors="*{stationAddress}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Số điện thoại</span>
+                <input type="tel" th:field="*{stationPhoneNumber}" maxlength="20" required>
+                <small th:errors="*{stationPhoneNumber}"></small>
+            </label>
+        </div>
+
+        <div class="inline-actions">
+            <button type="submit" class="admin-button"
+                    th:text="${stationId != null ? 'Lưu cập nhật' : 'Lưu trạm'}">
+                Lưu trạm
+            </button>
+            <a class="admin-button light" th:href="@{/admin/stations}">Quay lại</a>
+        </div>
+    </form>
+</section>
+</body>
+</html>

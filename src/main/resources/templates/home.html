@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trang chủ | E-Vehicle Rental</title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}">
+    <link rel="stylesheet" th:href="@{/css/home.css}">
+</head>
+<body class="customer-page home-page">
+
+<nav class="customer-navbar" aria-label="Điều hướng chính">
+    <a class="brand-link" th:href="@{/home}" aria-label="E-Vehicle Rental — Trang chủ">
+        <span class="brand-logo">
+            <img th:src="@{/images/logo/logo.png}" alt="E-Vehicle Rental">
+        </span>
+    </a>
+
+    <div class="customer-menu">
+        <a sec:authorize="hasRole('STAFF')" th:href="@{/staff/licenses}">Xác minh GPLX</a>
+        <a class="active" th:href="@{/home}" aria-current="page">Trang chủ</a>
+        <a sec:authorize="hasRole('CUSTOMER')" th:href="@{/bookings}">Đơn của tôi</a>
+        <a sec:authorize="hasRole('CUSTOMER')" class="nav-user" th:href="@{/profile}"
+           th:text="${email}" title="Mở hồ sơ của tôi">Hồ sơ của tôi</a>
+
+        <a sec:authorize="isAnonymous()" th:href="@{/login}">Đăng nhập</a>
+        <form sec:authorize="isAuthenticated()" th:action="@{/logout}" method="post">
+            <button type="submit" class="btn-ghost">Đăng xuất</button>
+        </form>
+    </div>
+</nav>
+
+<main class="customer-container home-container">
+    <section class="hero-section" aria-labelledby="home-title">
+        <div class="hero-video-layer" aria-hidden="true">
+            <video autoplay muted loop playsinline
+                   th:poster="@{/images/background/electric-car-auth-bg.jpg}">
+                <source th:src="@{/video/istockphoto-902026438-640_adpp_is.mp4}"
+                        type="video/mp4">
+            </video>
+        </div>
+
+        <div class="hero-content">
+            <p class="home-eyebrow">E-Vehicle Rental</p>
+            <h1 id="home-title" class="hero-title">
+                Thuê xe điện linh hoạt
+                <span class="highlight">cho mọi hành trình</span>
+            </h1>
+
+            <p class="hero-copy hero-description">
+                Khám phá các mẫu xe điện phù hợp với chuyến đi của bạn.
+            </p>
+
+            <div class="hero-actions">
+                <a class="btn-gold" href="#vehicle-search">Tìm xe theo lịch <span aria-hidden="true">↓</span></a>
+                <a class="btn-ghost" th:if="${searchAttempted != true}" href="#vehicle-list">Xem mẫu xe <span aria-hidden="true">↗</span></a>
+            </div>
+        </div>
+    </section>
+
+    <section id="vehicle-search" class="glass-card vehicle-section search-section" aria-labelledby="search-title">
+        <div class="section-head">
+            <div>
+                <p class="home-eyebrow">Lên kế hoạch chuyến đi</p>
+                <h2 id="search-title">Bạn muốn nhận xe ở đâu?</h2>
+            </div>
+            <p class="home-section-description">Chọn trạm và thời gian để kiểm tra xe còn lịch. Các mục có dấu * là bắt buộc.</p>
+        </div>
+
+        <form class="vehicle-search-form" method="get" th:action="@{/vehicles#vehicle-search}" th:object="${searchForm}">
+            <div class="search-errors" role="alert" th:if="${searchAttempted == true and #fields.hasAnyErrors()}">
+                <strong>Vui lòng kiểm tra lại tiêu chí tìm kiếm</strong>
+                <ul><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
+            </div>
+
+            <div class="search-field search-station">
+                <label for="stationId">Trạm nhận xe <span aria-hidden="true">*</span></label>
+                <select th:field="*{stationId}" required
+                        th:attr="aria-invalid=${searchAttempted == true and #fields.hasErrors('stationId')}">
+                    <option value="">Chọn trạm nhận xe</option>
+                    <option th:each="station : ${stations}" th:value="${station.stationId}" th:text="${station.stationName}"></option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label for="startAt">Ngày giờ nhận xe <span aria-hidden="true">*</span></label>
+                <input type="datetime-local" step="1" th:field="*{startAt}" required
+                       th:attr="aria-invalid=${searchAttempted == true and #fields.hasErrors('startAt')}"
+                       aria-describedby="search-time-note">
+            </div>
+            <div class="search-field">
+                <label for="endAt">Ngày giờ trả xe <span aria-hidden="true">*</span></label>
+                <input type="datetime-local" step="1" th:field="*{endAt}" required
+                       th:attr="aria-invalid=${searchAttempted == true and #fields.hasErrors('endAt')}"
+                       aria-describedby="search-time-note">
+            </div>
+            <div class="search-field">
+                <label for="categoryId">Loại xe <span class="search-optional">Tùy chọn</span></label>
+                <select th:field="*{categoryId}">
+                    <option value="">Tất cả loại xe</option>
+                    <option th:each="category : ${categories}" th:value="${category.categoryId}" th:text="${category.categoryName}"></option>
+                </select>
+            </div>
+            <div class="search-field">
+                <label for="modelId">Mẫu xe <span class="search-optional">Tùy chọn</span></label>
+                <select th:field="*{modelId}">
+                    <option value="">Tất cả mẫu xe</option>
+                    <option th:each="item : ${searchModels}" th:value="${item.modelId}"
+                            th:attr="data-category=${item.category.categoryId}" th:text="${item.modelName}"></option>
+                </select>
+            </div>
+            <div class="search-actions">
+                <button type="submit" class="search-submit">Tìm xe <span aria-hidden="true">→</span></button>
+                <a class="search-clear" th:href="@{/home#vehicle-search}">Xóa bộ lọc</a>
+            </div>
+            <p class="search-note" id="search-time-note">Thời gian theo giờ Việt Nam (UTC+7). Kết quả tìm kiếm không giữ xe.</p>
+        </form>
+    </section>
+
+    <section class="glass-card vehicle-section search-results" th:if="${searchSucceeded == true}" aria-labelledby="search-results-title" aria-live="polite">
+        <div class="section-head">
+            <div>
+                <p class="home-eyebrow">Dành cho hành trình của bạn</p>
+                <h2 id="search-results-title">Kết quả tìm kiếm <span class="search-count" th:text="${#lists.size(searchResults)}"></span></h2>
+            </div>
+            <p class="home-section-description search-period">
+                <span th:text="${#temporals.format(searchForm.startAt, 'HH:mm:ss · dd/MM/yyyy')}"></span>
+                <span aria-hidden="true">→</span>
+                <span th:text="${#temporals.format(searchForm.endAt, 'HH:mm:ss · dd/MM/yyyy')}"></span>
+            </p>
+        </div>
+        <div class="home-empty-state" th:if="${#lists.isEmpty(searchResults)}">
+            <p>Không có xe phù hợp</p>
+            <span>Bạn thử đổi trạm, thời gian hoặc bỏ bớt bộ lọc nhé.</span>
+            <a class="btn-ghost search-edit" href="#vehicle-search">Điều chỉnh tìm kiếm</a>
+        </div>
+        <div class="vehicle-grid">
+            <article class="vehicle-card" th:each="result : ${searchResults}">
+                <div class="vehicle-media">
+                    <img th:if="${!#strings.isEmpty(result.imageUrl)}" th:src="@{${result.imageUrl}}" th:alt="${result.modelName}" loading="lazy">
+                    <span class="home-image-placeholder" th:if="${#strings.isEmpty(result.imageUrl)}">Chưa có ảnh</span>
+                </div>
+                <div class="vehicle-info">
+                    <p class="search-category" th:text="${result.categoryName}"></p>
+                    <h3 th:text="${result.modelName}"></h3>
+                    <p class="muted" th:text="|${result.brand} · ${result.seatCount} chỗ|"></p>
+                    <p class="search-card-station"><span>Trạm nhận</span><strong th:text="${result.stationName}"></strong></p>
+                    <div class="home-card-price search-quote">
+                        <div th:if="${result.priceError == null}">
+                            <p class="vehicle-price" th:text="|${#numbers.formatDecimal(result.dailyRate, 1, 'POINT', 2, 'COMMA')} đ/ngày|"></p>
+                            <p class="search-days" th:text="|${result.rentalDays} ngày thuê|"></p>
+                            <div class="search-total"><span>Ước tính</span><strong th:text="|${#numbers.formatDecimal(result.estimatedAmount, 1, 'POINT', 0, 'COMMA')} đ|"></strong></div>
+                            <a class="btn-ghost" th:href="@{/vehicles(selectVehicleId=${result.vehicleId},stationId=${searchForm.stationId},categoryId=${searchForm.categoryId},modelId=${searchForm.modelId},startAt=${searchForm.startAt},endAt=${searchForm.endAt})}">Xem chi tiết và đặt xe</a>
+                        </div>
+                        <div class="search-price-unavailable" th:if="${result.priceError != null}">
+                            <strong>Chưa thể báo giá</strong>
+                            <p th:text="${result.priceError}"></p>
+                            <span th:text="|Thời lượng: ${result.rentalDays} ngày thuê|"></span>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </div>
+        <p class="search-note" th:unless="${#lists.isEmpty(searchResults)}">Mỗi thẻ là một xe phù hợp với lịch bạn chọn. Số ngày tính thuê được làm tròn lên theo mỗi 24 giờ.</p>
+    </section>
+
+    <section id="vehicle-list" th:if="${searchAttempted != true}" class="glass-card vehicle-section" aria-labelledby="vehicle-list-title">
+        <div class="section-head">
+            <div>
+                <p class="home-eyebrow">Khám phá bộ sưu tập</p>
+                <h2 id="vehicle-list-title">Mẫu xe điện</h2>
+            </div>
+            <p class="home-section-description">Đây là danh mục mẫu xe. Chọn trạm và thời gian ở trên để kiểm tra xe còn lịch.</p>
+        </div>
+
+        <div class="home-empty-state" th:if="${#lists.isEmpty(vehicleModels)}">
+            <p>Hiện chưa có mẫu xe để hiển thị.</p>
+            <span>Bạn có thể quay lại xem sau.</span>
+        </div>
+
+        <div class="vehicle-grid">
+            <article class="vehicle-card"
+                     th:each="car : ${vehicleModels}"
+                     th:with="price=${dailyRates[car.modelId]}">
+
+                <div class="vehicle-media">
+                    <img th:if="${!#strings.isEmpty(car.imageUrl)}"
+                         th:src="@{${car.imageUrl}}"
+                         th:alt="${car.modelName}"
+                         loading="lazy">
+                    <span class="home-image-placeholder" th:if="${#strings.isEmpty(car.imageUrl)}">
+                        Chưa có ảnh
+                    </span>
+                </div>
+
+                <div class="vehicle-info">
+                    <h3 th:text="${car.modelName}">VF 5</h3>
+
+                    <p class="muted"
+                       th:text="|${car.brand} · ${car.seatCount} chỗ|">
+                        VinFast · 5 chỗ
+                    </p>
+
+                    <div class="home-card-price">
+                        <p class="vehicle-price" th:if="${price != null}"
+                           th:text="|${#numbers.formatDecimal(price, 1, 'POINT', 2, 'COMMA')} đ/ngày|">
+                            700.000,00 đ/ngày
+                        </p>
+                        <a class="btn-ghost model-detail-link"
+                           th:href="@{/models/{id}(id=${car.modelId})}">
+                            Xem chi tiết
+                        </a>
+                        <p class="muted" th:if="${price == null}">
+                            Chưa có giá thuê áp dụng
+                        </p>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </section>
+</main>
+
+
+<footer class="home-footer">
+    <div class="customer-container">
+        <div class="home-footer-content">
+            <div class="home-footer-brand">
+                <a class="brand-link" th:href="@{/home}" aria-label="E-Vehicle Rental — Trang chủ">
+                    <span class="brand-logo">
+                        <img th:src="@{/images/logo/logo.png}" alt="E-Vehicle Rental" loading="lazy">
+                    </span>
+                </a>
+                <p>Thuê xe điện linh hoạt,<br>đồng hành cùng mỗi chuyến đi.</p>
+            </div>
+
+            <nav class="home-footer-links" aria-label="Khám phá">
+                <h2>Khám phá</h2>
+                <a th:href="@{/home#vehicle-list}">Mẫu xe điện</a>
+                <a href="#vehicle-search">Tìm xe theo lịch</a>
+            </nav>
+
+            <nav class="home-footer-links" aria-label="Tài khoản">
+                <h2>Tài khoản</h2>
+                <a sec:authorize="hasRole('CUSTOMER')" th:href="@{/profile}">Hồ sơ của tôi</a>
+                <a sec:authorize="isAnonymous()" th:href="@{/login}">Đăng nhập</a>
+                <a th:href="@{/home}">Trang chủ</a>
+            </nav>
+        </div>
+
+        <div class="home-footer-bottom">
+            <small>© E-Vehicle Rental</small>
+            <a href="#home-title">Về đầu trang <span aria-hidden="true">↑</span></a>
+        </div>
+    </div>
+</footer>
+
+<script th:src="@{/js/vehicle-search.js}" defer></script>
+</body>
+</html>

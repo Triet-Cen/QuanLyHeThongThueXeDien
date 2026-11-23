@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Xác nhận đặt xe | E-Vehicle Rental</title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}">
+    <link rel="stylesheet" th:href="@{/css/home.css}">
+    <link rel="stylesheet" th:href="@{/css/booking.css}">
+</head>
+<body class="customer-page home-page booking-page">
+<nav class="customer-navbar">
+    <a class="brand-link" th:href="@{/home}">E-Vehicle Rental</a>
+    <div class="customer-menu"><a th:href="@{/bookings}">Đơn của tôi</a><a th:href="@{/profile}" th:text="${email}"></a>
+        <form th:action="@{/logout}" method="post"><button class="btn-ghost">Đăng xuất</button></form>
+    </div>
+</nav>
+<main class="customer-container home-container">
+    <section class="glass-card vehicle-section">
+        <h1>Xác nhận đặt xe</h1>
+        <p>Kiểm tra thông tin trước khi xác nhận. Xe chỉ được giữ lịch sau khi tạo đơn thành công.</p>
+        <p class="booking-error" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+        <p class="booking-error" role="alert" th:if="${quoteError}" th:text="${quoteError}"></p>
+        <div th:if="${quote != null}" class="booking-grid">
+            <div>
+                <img class="booking-image" th:if="${!#strings.isEmpty(quote.imageUrl)}" th:src="@{${quote.imageUrl}}" th:alt="${quote.modelName}">
+                <h2 th:text="${quote.modelName}"></h2><p th:text="${quote.description}"></p>
+                <dl class="booking-details">
+                    <dt>Trạm nhận và trả</dt><dd th:text="${quote.stationName}"></dd>
+                    <dt>Nhận xe</dt><dd th:text="${#temporals.format(bookingForm.startAt,'HH:mm:ss dd/MM/yyyy')}"></dd>
+                    <dt>Trả xe</dt><dd th:text="${#temporals.format(bookingForm.endAt,'HH:mm:ss dd/MM/yyyy')}"></dd>
+                    <dt>Số ngày tính thuê</dt><dd th:text="${quote.days}"></dd>
+                </dl>
+            </div>
+            <div>
+                <dl class="booking-details">
+                    <dt>Đơn giá/ngày</dt><dd th:text="|${#numbers.formatDecimal(quote.dailyRate,1,'POINT',0,'COMMA')} đ|"></dd>
+                    <dt>Tiền thuê</dt><dd th:text="|${#numbers.formatDecimal(quote.amounts.rentalAmount,1,'POINT',0,'COMMA')} đ|"></dd>
+                    <dt>Giảm giá</dt><dd th:text="|${#numbers.formatDecimal(quote.amounts.discountAmount,1,'POINT',0,'COMMA')} đ|"></dd>
+                    <dt>Tổng cần thanh toán</dt><dd><strong th:text="|${#numbers.formatDecimal(quote.amounts.totalAmount,1,'POINT',0,'COMMA')} đ|"></strong></dd>
+                </dl>
+                <div th:if="${quote.eligibilityError != null}">
+                    <p class="booking-error" th:text="${quote.eligibilityError}"></p>
+                    <a class="btn-ghost" th:href="@{/profile}">Cập nhật hồ sơ</a>
+                    <a class="btn-ghost" th:href="@{/profile/license}">Hồ sơ GPLX</a>
+                    <p>Sau khi hoàn thiện, quay lại trang này và bấm cập nhật báo giá.</p>
+                </div>
+            </div>
+        </div>
+        <form th:action="@{/bookings/quote}" method="post" th:object="${bookingForm}" class="booking-coupon">
+            <input type="hidden" th:field="*{vehicleId}"><input type="hidden" th:field="*{stationId}">
+            <input type="hidden" th:field="*{categoryId}"><input type="hidden" th:field="*{modelId}">
+            <input type="hidden" th:field="*{startAt}"><input type="hidden" th:field="*{endAt}">
+            <label for="couponCode">Mã giảm giá (không bắt buộc)</label>
+            <input th:field="*{couponCode}" maxlength="50" autocomplete="off">
+            <p class="booking-error" th:if="${#fields.hasAnyErrors()}" th:each="error : ${#fields.allErrors()}" th:text="${error}"></p>
+            <div class="booking-actions"><button class="btn-ghost" type="submit">Cập nhật báo giá / áp mã</button>
+                <button class="btn-ghost" name="removeCoupon" value="true" type="submit">Bỏ mã giảm</button></div>
+        </form>
+        <div th:if="${quote != null}">
+            <p class="booking-error" th:if="${quote.amounts.totalAmount.signum() == 0}">Đơn 0 đồng cần chốt chính sách xác nhận. Vui lòng đổi hoặc bỏ mã giảm.</p>
+            <form th:if="${quote.eligibilityError == null and quote.amounts.totalAmount.signum() > 0}" th:action="@{/bookings}" method="post" data-booking-submit>
+                <input type="hidden" name="quoteToken" th:value="${quoteToken}">
+                <p>Sau khi xác nhận, khoảng lịch thuê được giữ 15 phút để thanh toán.</p>
+                <button class="btn-ghost" type="submit">Đồng ý giá và xác nhận đặt xe</button>
+            </form>
+        </div>
+        <p><a class="btn-ghost" th:href="@{/vehicles(stationId=${bookingForm.stationId},categoryId=${bookingForm.categoryId},modelId=${bookingForm.modelId},startAt=${bookingForm.startAt},endAt=${bookingForm.endAt})}">Quay lại kết quả tìm kiếm</a></p>
+    </section>
+</main>
+<script th:src="@{/js/booking.js}" defer></script>
+</body></html>

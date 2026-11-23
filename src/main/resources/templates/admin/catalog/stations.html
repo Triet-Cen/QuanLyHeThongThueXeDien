@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Trạm xe', 'stations', ~{::#station-content})}">
+<body>
+<section id="station-content" class="admin-panel">
+    <div class="admin-panel-header" >
+
+
+
+        <div>
+            <h2>Danh sách trạm xe</h2>
+            <p>Các địa điểm giao và nhận xe của hệ thống.</p>
+        </div>
+
+        <a class="admin-button" th:href="@{/admin/stations/new}">
+            Thêm trạm
+        </a>
+
+
+    </div>
+
+    <div class="admin-message success"
+         th:if="${successMessage != null}"
+         th:text="${successMessage}">
+    </div>
+
+    <div class="admin-message error"
+         th:if="${errorMessage != null}"
+         th:text="${errorMessage}">
+    </div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>Mã trạm</th>
+                <th>Tên trạm</th>
+                <th>Địa chỉ</th>
+                <th>Số điện thoại</th>
+                <th>Trạng thái</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="station : ${stations}">
+                <td th:text="|TX${station.stationId}|"></td>
+                <td th:text="${station.stationName}"></td>
+                <td th:text="${station.stationAddress}"></td>
+                <td th:text="${station.stationPhoneNumber}"></td>
+                <td><span class="status-chip" th:text="${station.stationStatus}"></span></td>
+                <td>
+                    <div class="inline-actions">
+                        <a class="admin-button light"
+                           th:href="@{/admin/stations/{stationId}/edit(stationId=${station.stationId})}">
+                            Sửa
+                        </a>
+
+                        <form class="inline-form" method="post"
+                              th:action="@{/admin/stations/{stationId}/visibility(stationId=${station.stationId})}">
+                            <input type="hidden" name="visible"
+                                   th:value="${station.stationStatus == 'INACTIVE'}">
+                            <button class="admin-button light" type="submit"
+                                    th:text="${station.stationStatus == 'INACTIVE' ? 'Hiện lại' : 'Ẩn'}"></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(stations)}">
+                <td colspan="6">Chưa có trạm xe nào.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
+<head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"><title>Giấy phép lái xe | E-Vehicle Rental</title><link rel="stylesheet" th:href="@{/css/customer.css}">
+    <link rel="stylesheet" th:href="@{/css/profile.css}">
+    <link rel="stylesheet" th:href="@{/css/license.css}">
+</head>
+<body class="customer-page license-page">
+<nav class="customer-navbar">
+    <a th:href="@{/home}" class="brand-link">E-Vehicle Rental</a>
+
+    <div class="customer-menu"><a th:href="@{/home}">Trang chủ</a>
+        <a th:if="${session.bookingSelection != null}" th:href="@{/bookings/confirm}">Tiếp tục đặt xe</a>
+        <a th:href="@{/profile}" th:text="${email}"></a>
+        <form method="post" th:action="@{/logout}"><button class="btn-ghost">Đăng xuất</button>
+        </form>
+    </div>
+
+</nav>
+<main class="customer-container profile-container">
+<a th:href="@{/profile}">← Hồ sơ của tôi</a>
+<header class="profile-heading">
+    <div>
+    <p class="profile-eyebrow">HỒ SƠ KHÁCH HÀNG</p><h1>Giấy phép lái xe</h1><p>Khai báo GPLX hạng B để nhân viên kiểm tra và xác minh.</p></div></header>
+<p class="profile-alert profile-alert-success" role="status" th:if="${successMessage}" th:text="${successMessage}"></p>
+<p class="license-error" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+<div class="license-layout">
+<section class="profile-panel" aria-labelledby="current-title"><h2 id="current-title">GPLX hiện hành</h2>
+<p th:if="${license == null}">Bạn chưa khai báo GPLX.</p>
+<div th:if="${license != null}"><p>Trạng thái: <strong th:text="${license.verificationStatus}"></strong></p><p th:if="${license.verifiedAt != null}">Thời điểm xác minh: <span th:text="${#temporals.format(license.verifiedAt, 'dd/MM/yyyy HH:mm')}"></span></p>
+<dl class="license-details"><dt>Số GPLX</dt><dd th:text="${license.licenseNumber}"></dd><dt>Hạng</dt><dd th:text="${license.licenseClass}"></dd><dt>Ngày cấp</dt><dd th:text="${#temporals.format(license.issueDate, 'dd/MM/yyyy')}"></dd><dt>Ngày hết hạn</dt><dd th:text="${#temporals.format(license.expiryDate, 'dd/MM/yyyy')}"></dd></dl>
+<img class="license-image" th:src="@{/profile/license/image}" alt="Ảnh GPLX hiện hành">
+</div></section>
+<section class="profile-panel" aria-labelledby="submit-title"><h2 id="submit-title">Gửi thông tin xác minh</h2>
+<p>Mỗi khách hàng có một GPLX hiện hành. Gửi thành công sẽ thay thế bản cũ và chuyển về Chưa xác minh.</p>
+<form class="profile-form" th:action="@{/profile/license}" th:object="${licenseForm}" method="post" enctype="multipart/form-data">
+<div class="license-error" role="alert" th:if="${#fields.hasAnyErrors()}"><p th:each="error : ${#fields.allErrors()}" th:text="${error}"></p></div>
+<div class="profile-field"><label for="licenseNumber">Số GPLX *</label><input th:field="*{licenseNumber}" maxlength="255" required></div>
+<div class="profile-field"><label for="licenseClass">Hạng GPLX *</label><select th:field="*{licenseClass}" required><option value="B">B</option></select></div>
+<div class="profile-fields-row">
+<div class="profile-field"><label for="issueDate">Ngày cấp *</label><input type="date" th:field="*{issueDate}" required></div>
+<div class="profile-field"><label for="expiryDate">Ngày hết hạn *</label><input type="date" th:field="*{expiryDate}" required></div>
+</div>
+<div class="profile-field"><label for="image">Ảnh GPLX *</label><input type="file" th:field="*{image}" accept="image/png,image/jpeg" required><small>PNG hoặc JPEG, tối đa 1 MB. Mỗi lần gửi cần chọn ảnh GPLX. Nếu có lỗi, vui lòng chọn lại ảnh.</small></div>
+<button class="profile-save-button" type="submit">Gửi xác minh</button>
+</form></section></div></main></body></html>

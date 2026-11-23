@@ -1,0 +1,435 @@
+/* ==========================================================
+   customer.css — style chung cho các trang khách hàng
+   Bảng màu: trắng sương, xanh lam, xanh ngọc, xanh lá, vàng kem
+   Muốn đổi màu cả hệ thống: chỉ cần sửa khối :root bên dưới.
+   ========================================================== */
+
+:root {
+    color-scheme: light;
+
+    /* Nền & chữ */
+    --page-bg: #f3f9fc;
+    --panel-bg: rgba(255, 255, 255, 0.78);
+    --card-bg: #ffffff;
+    --text: #1f3347;
+    --muted: #5d7388;
+    --line: rgba(70, 110, 150, 0.16);
+
+    /* Màu thương hiệu */
+    --blue: #4f7fd0;
+    --blue-deep: #2f4ea8;
+    --teal: #2f9593;
+    --teal-soft: #cdeae6;
+    --leaf: #8fc07a;
+    --cream: #f6edbf;
+
+    /* Giữ tên biến cũ để các trang khác không bị vỡ:
+       --gold giờ là màu nhấn (xanh ngọc), không còn là vàng. */
+    --gold: var(--teal);
+    --gold-hover: #38a29f;
+
+    --shadow-soft: 0 16px 44px rgba(60, 110, 150, 0.1);
+    --content-width: 1200px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body.customer-page {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    background:
+            radial-gradient(900px 480px at 8% -5%, rgba(143, 192, 122, 0.22), transparent 60%),
+            radial-gradient(800px 520px at 100% 10%, rgba(79, 127, 208, 0.16), transparent 60%),
+            linear-gradient(180deg, var(--page-bg) 0%, #eaf4f4 60%, #f4f9f6 100%);
+    background-attachment: fixed;
+}
+
+.customer-page a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.customer-page button {
+    font: inherit;
+}
+
+.customer-page :focus-visible {
+    outline: 3px solid var(--teal);
+    outline-offset: 4px;
+}
+
+/* ---------- Thanh điều hướng ---------- */
+
+.customer-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    padding: 14px max(20px, calc((100% - var(--content-width)) / 2));
+    position: relative;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+    /* Dải màu lấy từ bức tranh: xanh lá tre → xanh ngọc nhạt → xanh lam */
+    background:
+            radial-gradient(260px 120px at 12% 0%, rgba(143, 192, 122, 0.35), transparent 70%),
+            radial-gradient(320px 140px at 88% 100%, rgba(79, 127, 208, 0.28), transparent 70%),
+            linear-gradient(100deg, #e6f4e8 0%, #d8eef0 38%, #cfe2f6 72%, #c4d6f4 100%);
+    box-shadow: 0 6px 24px rgba(60, 110, 160, 0.16);
+}
+
+/* Đường kẻ màu mảnh ở đáy thanh điều hướng */
+.customer-navbar::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #8fc07a, #2f9593 45%, #4f7fd0);
+    opacity: 0.85;
+    content: "";
+    pointer-events: none;
+}
+
+.brand-link,
+.brand-logo {
+    display: inline-flex;
+    align-items: center;
+}
+
+.brand-logo img {
+    display: block;
+    width: auto;
+    height: 48px;
+    max-width: 160px;
+    object-fit: contain;
+}
+
+.customer-menu {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 22px;
+    min-width: 0;
+}
+
+.customer-menu > a {
+    padding: 7px 16px;
+    border-radius: 999px;
+    color: var(--text);
+    font-weight: 600;
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.customer-menu > a:hover {
+    background: rgba(255, 255, 255, 0.65);
+    color: var(--teal);
+}
+
+/* Mục đang chọn: viên thuốc trắng nổi nhẹ trên nền màu */
+.customer-menu > a.active {
+    background: #ffffff;
+    color: var(--blue-deep);
+    box-shadow: 0 3px 10px rgba(60, 110, 160, 0.16);
+}
+
+/* Email người dùng: dạng "chip" mờ */
+.nav-user {
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.45);
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
+.customer-menu form {
+    margin: 0;
+}
+
+/* ---------- Nút ---------- */
+
+.btn-ghost,
+.btn-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease,
+    color 160ms ease, transform 160ms ease,
+    box-shadow 160ms ease, filter 160ms ease;
+}
+
+.btn-ghost {
+    border: 1px solid rgba(79, 127, 208, 0.35);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--blue-deep);
+}
+
+.btn-ghost:hover {
+    border-color: var(--teal);
+    background: var(--teal-soft);
+    color: var(--teal);
+}
+
+/* Nút chính (tên class giữ nguyên là btn-gold để không phải sửa HTML) */
+.customer-page a.btn-gold,
+.customer-page button.btn-gold {
+    border: 0;
+    background: linear-gradient(135deg, #5b88d8, #38a29f);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(63, 120, 190, 0.28);
+}
+
+.customer-page a.btn-gold:hover,
+.customer-page button.btn-gold:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+    box-shadow: 0 12px 26px rgba(63, 120, 190, 0.34);
+}
+
+/* ---------- Khung nội dung ---------- */
+
+.customer-container {
+    width: min(calc(100% - 40px), var(--content-width));
+    margin-inline: auto;
+}
+
+.home-container {
+    display: grid;
+    gap: 28px;
+    padding-block: 24px 56px;
+}
+
+/* ---------- Hero: video nền + lời giới thiệu ---------- */
+
+.hero-section {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: center;
+    min-height: 470px;
+    overflow: hidden;
+    padding: clamp(24px, 6vw, 72px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(60, 110, 150, 0.16);
+    background: #dcebf5
+    url("../images/background/electric-car-auth-bg.jpg")
+    center / cover no-repeat;
+}
+
+.hero-video-layer {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    pointer-events: none;
+}
+
+.hero-video-layer video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Lớp phủ trắng sương: đậm bên trái để chữ dễ đọc, mờ dần sang phải */
+.hero-section::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: linear-gradient(
+            90deg,
+            rgba(243, 249, 252, 0.94) 0%,
+            rgba(236, 246, 249, 0.78) 52%,
+            rgba(236, 246, 249, 0.12) 100%
+    );
+    content: "";
+}
+
+.hero-content {
+    max-width: 630px;
+}
+
+.hero-title {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(2.2rem, 5.5vw, 4.4rem);
+    font-weight: 800;
+    line-height: 1.08;
+}
+
+.hero-title .highlight {
+    display: block;
+    width: fit-content;
+    color: var(--blue);
+    background: linear-gradient(90deg, #4f7fd0, #2f9593);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero-copy {
+    margin: 18px 0 0;
+    color: var(--muted);
+    font-size: clamp(1rem, 2vw, 1.15rem);
+}
+
+.hero-description {
+    max-width: 500px;
+}
+
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 26px;
+}
+
+/* ---------- Danh sách mẫu xe ---------- */
+
+.glass-card {
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 20px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-soft);
+}
+
+.vehicle-section {
+    padding: clamp(16px, 3vw, 28px);
+    scroll-margin-top: 20px;
+}
+
+.section-head {
+    margin-bottom: 18px;
+}
+
+.section-head h2 {
+    margin: 0;
+    font-size: clamp(1.35rem, 3vw, 1.8rem);
+    line-height: 1.2;
+}
+
+.vehicle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+    gap: 18px;
+}
+
+.vehicle-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 6px 20px rgba(60, 110, 150, 0.08);
+    transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+
+.vehicle-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(47, 149, 147, 0.35);
+    box-shadow: 0 16px 34px rgba(60, 110, 150, 0.16);
+}
+
+.vehicle-media {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 10;
+    padding: 14px;
+    border-bottom: 1px solid var(--line);
+    background: radial-gradient(ellipse at 50% 35%, #ffffff, #dcebf5 85%);
+}
+
+.vehicle-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-fit: contain;
+}
+
+.vehicle-info {
+    padding: 16px;
+}
+
+.vehicle-info h3 {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+    overflow-wrap: anywhere;
+}
+
+.vehicle-info .muted {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.vehicle-info .vehicle-price {
+    margin: 10px 0 0;
+    color: var(--blue-deep);
+    font-weight: 700;
+}
+
+/* ---------- Màn hình nhỏ ---------- */
+
+@media (max-width: 600px) {
+    .customer-navbar {
+        padding: 12px 16px;
+    }
+
+    .brand-logo img {
+        height: 40px;
+    }
+
+    .customer-menu {
+        gap: 8px 14px;
+    }
+
+    .customer-container {
+        width: calc(100% - 28px);
+    }
+
+    .home-container {
+        gap: 18px;
+        padding-block: 14px 32px;
+    }
+
+    .hero-section {
+        min-height: 360px;
+        border-radius: 16px;
+    }
+
+    .hero-section::before {
+        background: linear-gradient(
+                90deg,
+                rgba(243, 249, 252, 0.94),
+                rgba(236, 246, 249, 0.75)
+        );
+    }
+
+    .glass-card {
+        border-radius: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-video-layer {
+        display: none;
+    }
+
+    .btn-ghost,
+    .btn-gold,
+    .vehicle-card {
+        transition: none;
+    }
+}

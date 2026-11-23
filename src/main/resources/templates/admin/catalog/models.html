@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Mẫu xe', 'models', ~{::#model-list})}">
+<body>
+<section id="model-list" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2>Danh sách mẫu xe</h2>
+        <a class="admin-button" th:href="@{/admin/models/new}">Thêm mẫu xe</a>
+    </div>
+
+    <div class="admin-message success" th:if="${successMessage != null}"
+         th:text="${successMessage}"></div>
+    <div class="admin-message error" th:if="${errorMessage != null}"
+         th:text="${errorMessage}"></div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>Mã mẫu</th>
+                <th>Tên mẫu xe</th>
+                <th>Hãng xe</th>
+                <th>Số chỗ</th>
+                <th>Loại xe</th>
+                <th>Mô tả</th>
+                <th>Thao tác</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${vehicleModels}">
+                <td th:text="|MX${item.modelId}|"></td>
+                <td th:text="${item.modelName}"></td>
+                <td th:text="${item.brand}"></td>
+                <td th:text="${item.seatCount}"></td>
+                <td th:text="${item.category.categoryName}"></td>
+                <td th:text="${item.description ?: '—'}"></td>
+                <td>
+                    <div class="inline-actions">
+                        <a class="admin-button light"
+                           th:href="@{/admin/models/{id}/edit(id=${item.modelId})}">Sửa</a>
+                        <form class="inline-form" method="post"
+                              th:action="@{/admin/models/{id}/visibility(id=${item.modelId})}">
+                            <input type="hidden" name="visible"
+                                   th:value="${item.modelStatus == 'INACTIVE'}">
+                            <button class="admin-button light" type="submit"
+                                    th:text="${item.modelStatus == 'INACTIVE' ? 'Hiện lại' : 'Ẩn'}"></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(vehicleModels)}">
+                <td colspan="7">Chưa có mẫu xe nào.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

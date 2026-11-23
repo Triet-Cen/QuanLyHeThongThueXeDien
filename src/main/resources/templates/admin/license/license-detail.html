@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout ::
+        layout('Xét duyệt GPLX', 'licenses', ~{::#license-detail})}">
+<body>
+<section id="license-detail" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2>Xét duyệt giấy phép lái xe</h2>
+        <a class="admin-button light" th:href="@{/admin/licenses}">
+            Quay lại
+        </a>
+    </div>
+
+    <div class="admin-message success"
+         th:if="${successMessage}" th:text="${successMessage}"></div>
+
+    <div class="admin-message error"
+         th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <!-- Đặt khối thông tin khách hàng và GPLX ở đây. -->
+
+    <p>
+        Trạng thái:
+        <strong th:text="${license.verificationStatus}"></strong>
+    </p>
+
+    <p th:if="${license.reviewedBy != null}">
+        Người xét duyệt:
+        <span th:text="${license.reviewedBy.email}"></span>
+    </p>
+
+    <p th:if="${license.verifiedAt != null}">
+        Thời điểm:
+        <span th:text="${#temporals.format(
+            license.verifiedAt, 'dd/MM/yyyy HH:mm')}"></span>
+    </p>
+
+    <img th:src="@{/admin/licenses/{id}/image(id=${license.licenseId})}"
+         alt="Ảnh GPLX khách cung cấp"
+         style="display:block;max-width:100%;max-height:480px;object-fit:contain">
+
+    <p>Đối chiếu giấy phép và thông tin khách hàng trước khi xét duyệt.</p>
+
+    <form method="post"
+          th:action="@{/admin/licenses/{id}(id=${license.licenseId})}"
+          th:if="${license.verificationStatus != 'Từ chối'}">
+
+        <input type="hidden" name="expectedImage"
+               th:value="${license.imagePath}">
+
+        <div class="admin-form-actions">
+            <button class="admin-button" type="submit"
+                    name="decision" value="Đã xác minh"
+                    th:if="${license.verificationStatus == 'Chưa xác minh'}">
+                Duyệt GPLX
+            </button>
+
+            <button class="admin-button light" type="submit"
+                    name="decision" value="Từ chối">
+                Từ chối
+            </button>
+        </div>
+    </form>
+</section>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Đơn thuê xe | E-Vehicle Rental</title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}"><link rel="stylesheet" th:href="@{/css/home.css}"><link rel="stylesheet" th:href="@{/css/booking.css}">
+</head>
+<body class="customer-page home-page booking-page">
+<nav class="customer-navbar"><a class="brand-link" th:href="@{/home}">E-Vehicle Rental</a>
+    <div class="customer-menu"><a th:href="@{/bookings}">Đơn của tôi</a><a th:href="@{/profile}" th:text="${email}"></a></div></nav>
+<main class="customer-container home-container"><section class="glass-card vehicle-section">
+    <h1 th:text="|Đơn thuê #${rental.rentalId}|"></h1>
+    <p role="status" th:if="${successMessage}" th:text="${successMessage}"></p>
+    <p class="booking-error" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+    <p th:text="${activeHold ? 'Chờ thanh toán' : (rental.status == 'CANCELLED' ? 'Đã hủy / hết hạn giữ lịch' : rental.status)}"></p>
+    <h2 th:text="${rental.vehicle.vehicleModel.modelName}"></h2>
+    <dl class="booking-details">
+        <dt>Trạm nhận và trả</dt><dd th:text="${rental.pickupStation.stationName}"></dd>
+        <dt>Nhận xe</dt><dd th:text="${#temporals.format(rental.startAt,'HH:mm:ss dd/MM/yyyy')}"></dd>
+        <dt>Trả xe</dt><dd th:text="${#temporals.format(rental.endAt,'HH:mm:ss dd/MM/yyyy')}"></dd>
+        <dt>Số ngày tính thuê</dt><dd th:text="${rental.rentalDays}"></dd>
+        <dt>Đơn giá/ngày đã chốt</dt><dd th:text="|${#numbers.formatDecimal(rental.dailyRate,1,'POINT',0,'COMMA')} đ|"></dd>
+        <dt>Tiền thuê</dt><dd th:text="|${#numbers.formatDecimal(rental.rentalAmount,1,'POINT',0,'COMMA')} đ|"></dd>
+        <dt>Mã giảm</dt><dd th:text="${rental.couponCode == null ? 'Không áp dụng' : rental.couponCode}"></dd>
+        <dt>Tiền giảm</dt><dd th:text="|${#numbers.formatDecimal(rental.discountAmount,1,'POINT',0,'COMMA')} đ|"></dd>
+        <dt>Tổng thuê đã chốt</dt><dd><strong th:text="|${#numbers.formatDecimal(rental.totalAmount,1,'POINT',0,'COMMA')} đ|"></strong></dd>
+        <dt>Hạn giữ lịch</dt><dd th:text="${#temporals.format(rental.holdExpiresAt,'HH:mm:ss dd/MM/yyyy')}"></dd>
+    </dl>
+    <div th:if="${activeHold}" data-active-hold>
+        <p>Thời gian còn lại: <strong data-hold-countdown th:attr="data-server-now=${serverNow},data-hold-until=${holdUntil}">Đang tính…</strong></p>
+        <p>Thanh toán VNPay/SePay chưa được tích hợp. Đơn chưa được xác nhận thanh toán; hạn giữ lịch không thay đổi khi tải lại trang.</p>
+        <form th:action="@{/bookings/{id}/cancel(id=${rental.rentalId})}" method="post"><button class="btn-ghost" type="submit">Hủy đơn chờ thanh toán</button></form>
+    </div>
+    <p data-expired-message th:hidden="${activeHold}">Bạn có thể tìm và chọn lịch xe khác. Xe chỉ được giữ trong khoảng thời gian thuê của đơn còn hiệu lực.</p>
+    <div class="booking-actions"><a class="btn-ghost" th:href="@{/home#vehicle-search}">Tìm xe</a><a class="btn-ghost" th:href="@{/bookings/{id}(id=${rental.rentalId})}">Cập nhật trạng thái</a></div>
+</section></main><script th:src="@{/js/booking.js}" defer></script></body></html>

@@ -1,0 +1,116 @@
+package com.example.QuanLyChoThueXeDien.rental.controllers;
+
+import com.example.QuanLyChoThueXeDien.rental.dtos.*;
+import com.example.QuanLyChoThueXeDien.rental.services.*;
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import java.security.Principal;
+
+@Controller
+@RequiredArgsConstructor //truyền service và clock vào.
+@RequestMapping("/bookings")
+public class BookingController {
+    private final BookingService service;
+    private final RentalClock clock;
+
+    @GetMapping
+    public String list(Principal principal, Model model) {
+        model.addAttribute("rentals", service.own(principal.getName()));
+        model.addAttribute("email", principal.getName());
+        return "user/bookings";
+    }
+
+    @GetMapping("/confirm")
+    public String confirm(Principal principal, HttpSession session, Model model) {
+        Object selected = session.getAttribute(BookingSession.SELECTION); /*Tác dụng là đọc
+        lựa chọn của khách hàng đã lưu trong BookingSession*/
+        if (!(selected instanceof BookingForm form)) return "redirect:/home#vehicle-search";
+        model.addAttribute("bookingForm", form.copy());
+        return render(principal, session, model, form);
+    }
+
+    @PostMapping("/quote")
+    public String quote(@Valid @ModelAttribute("bookingForm") BookingForm form, BindingResult errors,
+            @RequestParam(defaultValue = "false") boolean removeCoupon,
+            Principal principal, HttpSession session, Model model) {
+        if (removeCoupon) {
+            form.setCouponCode(null);
+            // Nếu khách gỡ mã giảm giá, render trang lại để cập nhật giá lại
+            return render(principal, session, model, form);
+        }
+        if (errors.hasErrors()) {
+            model.addAttribute("email", principal.getName());
+            return "user/booking-confirm";
+        }
+        return render(principal, session, model, form);
+    }
+
+    @PostMapping
+    public String create(@RequestParam String quoteToken, Principal principal, HttpSession session,
+            Model model, RedirectAttributes redirect) {
+        BookingSession state = BookingSession.of(session, principal.getName());
+        BookingQuote accepted;
+        // Chỉ nhớ kết quả trong session; khóa DB trong service vẫn bảo vệ lịch giữa mọi khách.
+        synchronized (state) {
+            Integer createdId = state.createdOrder(quoteToken);
+            if (createdId != null) return "redirect:/bookings/" + createdId;
+            accepted = state.get(quoteToken);
+            //Lấy báo giá đã lưu trong BookingSession cỦA khách
+            if (accepted == null)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Báo giá không còn trong phiên. Vui lòng chọn lại xe.");
+            try {
+                Integer id = service.create(principal.getName(), accepted);
+                state.rememberCreated(quoteToken, id);
+                redirect.addFlashAttribute("successMessage", "Đơn đã được tạo. Lịch xe được giữ đến hạn thanh toán ghi trên đơn.");
+                return "redirect:/bookings/" + id;
+            } catch (IllegalArgumentException e) {
+                model.addAttribute("errorMessage", e.getMessage());
+            } catch (ConcurrencyFailureException e) {
+                model.addAttribute("errorMessage", "Xe hoặc mã giảm đang được xử lý. Vui lòng kiểm tra lại trước khi xác nhận.");
+            }
+        }
+        model.addAttribute("bookingForm", accepted.selection().copy());
+        return render(principal, session, model, accepted.selection());
+    }
+
+    @GetMapping("/{id}")
+    public String view(@PathVariable Integer id, Principal principal, Model model) {
+        var rental = service.view(principal.getName(), id);
+        model.addAttribute("rental", rental);
+        model.addAttribute("activeHold", rental.hasActiveHold(clock.now()));
+        model.addAttribute("serverNow", clock.now().atZone(RentalClock.ZONE).toInstant().toEpochMilli());
+        model.addAttribute("holdUntil", rental.getHoldExpiresAt().atZone(RentalClock.ZONE).toInstant().toEpochMilli());
+        model.addAttribute("email", principal.getName());
+        return "user/booking-pending";
+    }
+
+    @PostMapping("/{id}/cancel")
+    public String cancel(@PathVariable Integer id, Principal principal, RedirectAttributes redirect) {
+        try {
+            service.cancel(principal.getName(), id);
+            redirect.addFlashAttribute("successMessage", "Đơn đã hủy hoặc đã hết hạn. Khoảng lịch giữ đã được giải phóng.");
+        } catch (IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage", e.getMessage()); }
+        return "redirect:/bookings/" + id;
+    }
+
+    private String render(Principal principal, HttpSession session, Model model, BookingForm form) {
+        model.addAttribute("email", principal.getName());
+        model.addAttribute("bookingForm", form.copy());
+        session.setAttribute(BookingSession.SELECTION, form.copy());
+        try {
+            BookingQuote quote = service.quote(principal.getName(), form);
+            model.addAttribute("quote", quote);
+            model.addAttribute("quoteToken", BookingSession.of(session, principal.getName()).add(quote));
+        } catch (IllegalArgumentException e) { model.addAttribute("quoteError", e.getMessage()); }
+        return "user/booking-confirm";
+    }
+}

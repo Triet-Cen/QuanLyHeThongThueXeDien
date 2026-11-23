@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Đơn của tôi | E-Vehicle Rental</title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}"><link rel="stylesheet" th:href="@{/css/home.css}"><link rel="stylesheet" th:href="@{/css/booking.css}">
+</head><body class="customer-page home-page booking-page">
+<nav class="customer-navbar"><a class="brand-link" th:href="@{/home}">E-Vehicle Rental</a><a th:href="@{/profile}" th:text="${email}"></a></nav>
+<main class="customer-container home-container"><section class="glass-card vehicle-section">
+    <h1>Đơn thuê của tôi</h1><p th:if="${#lists.isEmpty(rentals)}">Bạn chưa có đơn thuê xe.</p>
+    <article class="booking-list-item" th:each="rental : ${rentals}">
+        <h2 th:text="|#${rental.rentalId} · ${rental.vehicle.vehicleModel.modelName}|"></h2>
+        <p th:text="|${#temporals.format(rental.startAt,'HH:mm dd/MM/yyyy')} → ${#temporals.format(rental.endAt,'HH:mm dd/MM/yyyy')}|"></p>
+        <p th:text="${rental.isPending() ? 'Chờ thanh toán — mở chi tiết để kiểm tra hạn' : (rental.status == 'CANCELLED' ? 'Đã hủy / hết hạn' : rental.status)}"></p>
+        <a class="btn-ghost" th:href="@{/bookings/{id}(id=${rental.rentalId})}">Xem đơn</a>
+    </article><p><a class="btn-ghost" th:href="@{/home#vehicle-search}">Tìm xe</a></p>
+</section></main></body></html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Quản lý xe', 'vehicles', ~{::#vehicle-editor})}">
+<body>
+<section id="vehicle-editor" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2 th:text="${vehicleId == null ? 'Thêm xe' : 'Sửa xe'}"></h2>
+    </div>
+
+    <p class="admin-message error"
+       th:if="${#lists.isEmpty(vehicleModels) or #lists.isEmpty(stations)}">
+        Cần có mẫu xe thuộc loại xe đang hiển thị và một trạm xe đang hiển thị.
+    </p>
+
+    <form class="admin-form" method="post" th:object="${vehicleForm}"
+          th:action="${vehicleId == null} ? @{/admin/vehicles} : @{/admin/vehicles/{id}(id=${vehicleId})}">
+
+        <p class="admin-message error" th:each="error : ${#fields.globalErrors()}"
+           th:text="${error}"></p>
+
+        <div class="admin-form-grid">
+            <label class="admin-field">
+                <span>Mẫu xe</span>
+                <select th:field="*{modelId}" required>
+                    <option value="">Chọn mẫu xe</option>
+                    <option th:each="item : ${vehicleModels}"
+                            th:value="${item.modelId}"
+                            th:text="|MX${item.modelId} – ${item.modelName}|"></option>
+                </select>
+                <small th:errors="*{modelId}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Trạm xe</span>
+                <select th:field="*{stationId}" required>
+                    <option value="">Chọn trạm xe</option>
+                    <option th:each="station : ${stations}"
+                            th:value="${station.stationId}"
+                            th:text="|TX${station.stationId} – ${station.stationName}|"></option>
+                </select>
+                <small th:errors="*{stationId}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Biển số</span>
+                <input type="text" th:field="*{licensePlate}" maxlength="255" required>
+                <small th:errors="*{licensePlate}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Màu sắc</span>
+                <input type="text" th:field="*{color}" maxlength="255">
+                <small th:errors="*{color}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Mức pin (%)</span>
+                <input type="number" th:field="*{batteryLevel}"
+                       min="0" max="100" step="0.01" required>
+                <small th:errors="*{batteryLevel}"></small>
+            </label>
+        </div>
+
+        <div class="inline-actions">
+            <button class="admin-button" type="submit"
+                    th:disabled="${#lists.isEmpty(vehicleModels) or #lists.isEmpty(stations)}">
+                Lưu
+            </button>
+            <a class="admin-button light" th:href="@{/admin/vehicles}">Quay lại</a>
+        </div>
+    </form>
+</section>
+</body>
+</html>

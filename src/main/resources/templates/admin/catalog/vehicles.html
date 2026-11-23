@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Quản lý xe', 'vehicles', ~{::#vehicle-list})}">
+<body>
+<section id="vehicle-list" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2>Danh sách xe</h2>
+        <a class="admin-button" th:href="@{/admin/vehicles/new}">Thêm xe</a>
+    </div>
+
+    <div class="admin-message success" th:if="${successMessage != null}"
+         th:text="${successMessage}"></div>
+    <div class="admin-message error" th:if="${errorMessage != null}"
+         th:text="${errorMessage}"></div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>Mã xe</th>
+                <th>Biển số</th>
+                <th>Mẫu xe</th>
+                <th>Trạm xe</th>
+                <th>Màu sắc</th>
+                <th>Mức pin</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="vehicle : ${vehicles}">
+                <td th:text="|XE${vehicle.vehicleId}|"></td>
+                <td th:text="${vehicle.licensePlate}"></td>
+                <td th:text="${vehicle.vehicleModel.modelName}"></td>
+                <td th:text="${vehicle.station.stationName}"></td>
+                <td th:text="${vehicle.color ?: '—'}"></td>
+                <td th:text="|${vehicle.batteryLevel}%|"></td>
+                <td th:text="${vehicle.vehicleStatus}"></td>
+                <td>
+                    <a class="admin-button light"
+                       th:href="@{/admin/vehicles/{id}/edit(id=${vehicle.vehicleId})}">Sửa</a>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(vehicles)}">
+                <td colspan="8">Chưa có xe nào.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

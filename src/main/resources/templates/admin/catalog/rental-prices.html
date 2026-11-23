@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Giá thuê xe', 'rental-prices', ~{::#price-page})}">
+<body>
+<section id="price-page" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2>Quản lý giá thuê</h2>
+    </div>
+
+    <p class="admin-message success" th:if="${successMessage != null}"
+       th:text="${successMessage}"></p>
+
+    <p th:if="${#lists.isEmpty(vehicleModels)}">Hãy tạo mẫu xe trước khi thêm giá.</p>
+
+    <form class="admin-form" method="post"
+          th:action="@{/admin/rental-prices}" th:object="${rentalPriceForm}">
+        <p class="admin-message error" th:each="error : ${#fields.globalErrors()}"
+           th:text="${error}"></p>
+
+        <div class="admin-form-grid">
+            <label class="admin-field">
+                <span>Mẫu xe</span>
+                <select th:field="*{modelId}" required>
+                    <option value="">Chọn mẫu xe</option>
+                    <option th:each="item : ${vehicleModels}"
+                            th:value="${item.modelId}"
+                            th:text="${item.modelName}"></option>
+                </select>
+                <small th:errors="*{modelId}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Đơn giá ngày (đ)</span>
+                <input type="number" min="0.01" step="0.01"
+                       th:field="*{dailyRate}" required>
+                <small th:errors="*{dailyRate}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Ngày bắt đầu</span>
+                <input type="date" th:field="*{startDate}" required>
+                <small th:errors="*{startDate}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Ngày kết thúc (có thể để trống)</span>
+                <input type="date" th:field="*{endDate}">
+                <small th:errors="*{endDate}"></small>
+            </label>
+        </div>
+
+        <button type="submit" class="admin-button"
+                th:disabled="${#lists.isEmpty(vehicleModels)}">Lưu giá thuê</button>
+    </form>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>Mẫu xe</th>
+                <th>Đơn giá (đ/ngày)</th>
+                <th>Ngày bắt đầu</th>
+                <th>Ngày kết thúc</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="price : ${prices}">
+                <td th:text="${price.vehicleModel.modelName}"></td>
+                <td th:text="${price.dailyRate}"></td>
+                <td th:text="${price.startDate}"></td>
+                <td th:text="${price.endDate ?: 'Chưa xác định'}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(prices)}">
+                <td colspan="4">Chưa có giá thuê.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Đăng ký - E-Vehicle Rental</title>
+
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+</head>
+<body>
+
+<video class="auth-background"
+       th:poster="@{/images/backgound/electric-car-auth-bg.jpg}"
+       autoplay
+       muted
+       loop
+       playsinline
+       aria-hidden="true">
+    <source th:src="@{/video/istockphoto-902026438-640_adpp_is.mp4}"
+            type="video/mp4">
+</video>
+
+<main class="auth-layout auth-layout-register">
+
+    <section class="brand-panel">
+        <img class="brand-logo"
+             th:src="@{/images/logo/logo.png}"
+             alt="E-Vehicle Rental">
+
+        <p class="brand-kicker">
+            Start Your Electric Journey
+        </p>
+
+        <h2 class="brand-title">
+            Tài khoản mới
+            <span>cho hành trình xanh.</span>
+        </h2>
+
+        <p class="brand-description">
+            Tạo tài khoản để đặt thuê xe điện và
+            quản lý thông tin cá nhân một cách thuận tiện.
+        </p>
+
+        <div class="brand-features">
+            <span>Đặt xe nhanh</span>
+            <span>Lịch sử thuê xe</span>
+            <span>Quản lý hồ sơ</span>
+        </div>
+    </section>
+
+    <section class="auth-card">
+        <h1 class="auth-title">Đăng ký</h1>
+
+        <p class="auth-subtitle">
+            Tạo tài khoản E-Vehicle Rental
+        </p>
+
+        <div class="alert alert-error"
+             role="alert"
+             th:if="${error}"
+             th:text="${error}">
+        </div>
+
+        <form th:action="@{/register}"
+              th:object="${registerRequest}"
+              method="post"
+              accept-charset="UTF-8">
+
+            <div class="alert alert-error"
+                 role="alert"
+                 th:if="${#fields.hasErrors('*')}">
+                <ul>
+                    <li th:each="message : ${#fields.errors('*')}"
+                        th:text="${message}">
+                    </li>
+                </ul>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="fullName">
+                    Họ và tên *
+                </label>
+
+                <input class="form-input"
+                       id="fullName"
+                       type="text"
+                       th:field="*{fullName}"
+                       placeholder="Nhập họ và tên"
+                       autocomplete="name"
+                       minlength="3"
+                       maxlength="40"
+                       required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="email">
+                    Email *
+                </label>
+
+                <input class="form-input"
+                       id="email"
+                       type="email"
+                       th:field="*{email}"
+                       placeholder="Nhập email"
+                       autocomplete="email"
+                       maxlength="40"
+                       pattern="[^@]+@[^@.]+(\.[^@.]+)+"
+                       title="Phần sau @ phải có dấu chấm, ví dụ ten@gmail.com"
+                       required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="phone">
+                    Số điện thoại *
+                </label>
+
+                <input class="form-input"
+                       id="phone"
+                       type="tel"
+                       th:field="*{phone}"
+                       placeholder="Nhập số điện thoại 10 chữ số"
+                       autocomplete="tel"
+                       pattern="0[0-9]{9}"
+                       title="Số điện thoại phải bắt đầu bằng 0 và có 10 số"
+                       maxlength="10"
+                       required>
+            </div>
+
+            <div class="password-row">
+
+                <div class="form-group">
+                    <label class="form-label" for="password">
+                        Mật khẩu *
+                    </label>
+
+                    <input class="form-input"
+                           id="password"
+                           type="password"
+                           name="password"
+                           placeholder="Ít nhất 8 ký tự"
+                           autocomplete="new-password"
+                           minlength="8"
+                           maxlength="40"
+                           required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">
+                        Nhập lại mật khẩu *
+                    </label>
+
+                    <input class="form-input"
+                           id="confirmPassword"
+                           type="password"
+                           name="confirmPassword"
+                           placeholder="Nhập lại mật khẩu"
+                           autocomplete="new-password"
+                           minlength="8"
+                           maxlength="40"
+                           required>
+                </div>
+
+            </div>
+
+            <button class="auth-button" type="submit">
+                Đăng ký
+            </button>
+
+        </form>
+
+        <p class="auth-footer">
+            Đã có tài khoản?
+            <a th:href="@{/login}">Đăng nhập</a>
+        </p>
+    </section>
+
+</main>
+
+</body>
+</html>

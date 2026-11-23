@@ -1,0 +1,52 @@
+/* ==========================================================
+   license.css — trang Giấy phép lái xe (khách hàng + staff)
+   Ô nhập, ô chọn (select), khung ảnh: nền trắng.
+   Các ô dùng .profile-field đã được style trong profile.css.
+   ========================================================== */
+
+.license-page .license-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; align-items: start; }
+.license-page h2 { margin-top: 0; }
+.license-page .license-details { display: grid; grid-template-columns: minmax(100px, .6fr) minmax(0, 1fr); gap: 12px 20px; margin-block: 24px; }
+.license-page .license-details dt { color: var(--muted); }
+.license-page .license-details dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Khung ảnh GPLX: nền trắng xanh nhạt thay vì đen */
+.license-page .license-image {
+    display: block;
+    width: 100%;
+    max-width: 650px;
+    max-height: 480px;
+    object-fit: contain;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+/* Thông báo lỗi: chữ đỏ đậm, nền hồng nhạt (đọc được trên nền sáng) */
+.license-page .license-error {
+    padding: 12px 16px;
+    border: 1px solid #e0a09a;
+    border-radius: 10px;
+    background: #fff6f5;
+    color: #b3403a;
+}
+.license-page .license-error p { margin: 4px 0; }
+
+/* Ô chọn hạng GPLX */
+.license-page .profile-field select {
+    padding: 12px;
+    border: 1px solid #b9cbdc;
+    border-radius: 10px;
+    background: #ffffff;
+    color: var(--text);
+    font: inherit;
+}
+
+.license-page .license-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.license-page .license-table-wrap { overflow-x: auto; }
+.license-page .license-table { border-collapse: collapse; width: 100%; text-align: left; }
+.license-page .license-table th,
+.license-page .license-table td { padding: 14px; border-bottom: 1px solid var(--line); }
+.license-page .license-table th { color: var(--muted); font-size: .85rem; }
+
+@media (max-width: 800px) { .license-page .license-layout { grid-template-columns: 1fr; } }

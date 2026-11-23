@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Loại xe', 'categories', ~{::#category-editor})}">
+<body>
+<section id="category-editor" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2 th:text="${categoryId == null ? 'Thêm loại xe' : 'Sửa loại xe'}"></h2>
+    </div>
+
+    <form class="admin-form" method="post"
+          th:object="${categoryForm}"
+          th:action="${categoryId == null}
+              ? @{/admin/categories}
+              : @{/admin/categories/{id}(id=${categoryId})}">
+
+        <label class="admin-field">
+            <span>Tên loại xe</span>
+            <input type="text" th:field="*{categoryName}" required maxlength="60">
+            <small th:errors="*{categoryName}"></small>
+        </label>
+
+        <label class="admin-field">
+            <span>Mô tả</span>
+            <textarea th:field="*{description}" rows="4" maxlength="200"></textarea>
+            <small th:errors="*{description}"></small>
+        </label>
+
+        <div class="inline-actions">
+            <button class="admin-button" type="submit">Lưu</button>
+            <a class="admin-button light" th:href="@{/admin/categories}">Quay lại</a>
+        </div>
+    </form>
+</section>
+</body>
+</html>

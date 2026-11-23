@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="|${vehicleModel.modelName} - E-Vehicle Rental|">
+        Chi tiết mẫu xe
+    </title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}">
+    <link rel="stylesheet" th:href="@{/css/home.css}">
+</head>
+
+<body class="customer-page home-page">
+<nav class="customer-navbar">
+    <a class="brand-link" th:href="@{/home}">E-Vehicle Rental</a>
+
+    <div class="customer-menu">
+        <a th:href="@{/home}">Trang chủ</a>
+        <a class="nav-user" th:href="@{/profile}" th:text="${email}"></a>
+
+        <form th:action="@{/logout}" method="post">
+            <button class="btn-ghost" type="submit">Đăng xuất</button>
+        </form>
+    </div>
+</nav>
+
+<main class="customer-container home-container">
+    <div>
+        <a class="btn-ghost" th:href="@{/home#vehicle-list}">
+            ← Quay lại mẫu xe
+        </a>
+    </div>
+
+    <section class="glass-card vehicle-section">
+        <div class="section-head">
+            <div>
+                <p class="home-eyebrow">Chi tiết mẫu xe</p>
+                <h1 th:text="${vehicleModel.modelName}"></h1>
+                <p th:text="|${vehicleModel.brand} · ${vehicleModel.seatCount} chỗ|"></p>
+            </div>
+        </div>
+
+        <img class="model-detail-image"
+             th:if="${!#strings.isEmpty(vehicleModel.imageUrl)}"
+             th:src="@{${vehicleModel.imageUrl}}"
+             th:alt="${vehicleModel.modelName}">
+
+        <p th:if="${!#strings.isEmpty(vehicleModel.description)}"
+           th:text="${vehicleModel.description}"></p>
+    </section>
+
+    <section class="glass-card vehicle-section">
+        <div class="section-head">
+            <div>
+                <p class="home-eyebrow">Danh sách xe</p>
+                <h2>Các xe thuộc mẫu này</h2>
+            </div>
+        </div>
+
+        <div class="home-empty-state" th:if="${#lists.isEmpty(vehicles)}">
+            <p>Chưa có xe thuộc mẫu này tại các trạm đang hoạt động.</p>
+        </div>
+
+        <div class="vehicle-grid">
+            <article class="vehicle-card" th:each="vehicle : ${vehicles}">
+                <div class="vehicle-info">
+                    <h3 th:text="${vehicle.licensePlate}"></h3>
+
+                    <dl class="model-vehicle-details">
+                        <dt>Màu sắc</dt>
+                        <dd th:text="${#strings.isEmpty(vehicle.color)
+                            ? 'Chưa cập nhật' : vehicle.color}"></dd>
+
+                        <dt>Mức pin</dt>
+                        <dd th:text="|${vehicle.batteryLevel}%|"></dd>
+
+                        <dt>Trạm xe</dt>
+                        <dd th:text="${vehicle.station.stationName}"></dd>
+
+                        <dt>Trạng thái</dt>
+                        <dd th:switch="${vehicle.vehicleStatus}">
+                            <span th:case="'Available'">Sẵn sàng</span>
+                            <span th:case="'Booked'">Đã đặt</span>
+                            <span th:case="'Rented'">Đang cho thuê</span>
+                            <span th:case="'Maintenance'">Đang bảo trì</span>
+                            <span th:case="*" th:text="${vehicle.vehicleStatus}"></span>
+                        </dd>
+                    </dl>
+                </div>
+            </article>
+        </div>
+    </section>
+</main>
+</body>
+</html>

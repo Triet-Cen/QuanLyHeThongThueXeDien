@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Tổng quan', 'dashboard', ~{::#dashboard-content})}">
+<body>
+<div id="dashboard-content">
+
+    <section class="admin-hero">
+        <div class="admin-hero-content">
+            <span class="admin-badge">E-Vehicle Rental</span>
+            <h1>Quản trị hệ thống cho thuê xe điện</h1>
+            <p>Quản lý trạm xe, đội xe, giá thuê và các dữ liệu phục vụ vận hành.</p>
+        </div>
+
+        <div class="admin-hero-panel">
+            <div class="hero-metric">
+                <span>Khu vực</span>
+                <strong>Quản trị</strong>
+            </div>
+            <div class="hero-metric">
+                <span>Vai trò</span>
+                <strong>ADMIN</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-section admin-grid" aria-label="Chỉ số tổng quan">
+        <article class="admin-card">
+            <div class="admin-card-label">Trạm xe</div>
+            <div class="admin-card-value" th:text="${stationCount ?: '—'}">—</div>
+        </article>
+
+        <article class="admin-card">
+            <div class="admin-card-label">Phương tiện</div>
+            <div class="admin-card-value" th:text="${vehicleCount ?: '—'}">—</div>
+        </article>
+
+        <article class="admin-card">
+            <div class="admin-card-label">Tài khoản</div>
+            <div class="admin-card-value" th:text="${accountCount ?: '—'}">—</div>
+        </article>
+
+        <article class="admin-card">
+            <div class="admin-card-label">Đơn thuê</div>
+            <div class="admin-card-value" th:text="${rentalCount ?: '—'}">—</div>
+        </article>
+    </section>
+
+    <section id="master-data" class="admin-section admin-panel">
+        <div class="admin-panel-header">
+            <div>
+                <h2>Master Data</h2>
+                <p>Trạm xe, loại xe, mẫu xe, phương tiện, giá thuê,
+                    mã giảm giá và tài khoản.</p>
+            </div>
+        </div>
+    </section>
+
+</div>
+</body>
+</html>

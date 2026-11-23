@@ -1,0 +1,476 @@
+/* ==========================================================
+   home.css — quy tắc riêng cho trang chủ (home.html)
+   Màu sắc lấy từ biến trong customer.css, không khai báo lại ở đây.
+   ========================================================== */
+
+.home-page .home-container {
+    gap: 32px;
+    padding-block: 28px 64px;
+}
+
+/* ---------- Navbar ---------- */
+.home-page .customer-menu > a.active {
+    text-underline-offset: 8px;
+    text-decoration: underline;
+    text-decoration-color: rgba(47, 149, 147, 0.55);
+    text-decoration-thickness: 2px;
+}
+.home-page .customer-menu .nav-user {
+    max-width: 330px;
+    font-weight: 500;
+}
+
+/* ---------- Hero ---------- */
+.home-page .hero-section {
+    min-height: 440px;
+    padding: clamp(28px, 5vw, 64px);
+    border-radius: 22px;
+}
+.home-page .hero-content {
+    max-width: 670px;
+}
+.home-page .home-eyebrow {
+    margin: 0 0 14px;
+    color: var(--teal);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+.home-page .hero-title {
+    font-size: clamp(2.05rem, 4.4vw, 3.65rem);
+    line-height: 1.16;
+    letter-spacing: -.035em;
+    text-wrap: balance;
+}
+.home-page .hero-copy {
+    max-width: 420px;
+    margin-top: 20px;
+    font-size: 1rem;
+    line-height: 1.7;
+}
+.home-page .hero-actions {
+    gap: 12px;
+    margin-top: 28px;
+}
+.home-page .hero-actions a {
+    gap: 18px;
+    min-height: 46px;
+    padding-inline: 20px;
+}
+
+/* ---------- Danh sách mẫu xe ---------- */
+.home-page .vehicle-section {
+    padding: clamp(18px, 3vw, 30px);
+    border-radius: 22px;
+}
+.home-page .section-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px 32px;
+    margin-bottom: 26px;
+}
+.home-page .section-head .home-eyebrow {
+    margin-bottom: 8px;
+    font-size: .7rem;
+}
+.home-page .section-head h2 {
+    font-size: clamp(1.45rem, 2.6vw, 1.9rem);
+    letter-spacing: -.025em;
+}
+.home-page .home-section-description {
+    max-width: 290px;
+    margin: 0;
+    color: var(--muted);
+    font-size: .9rem;
+    line-height: 1.6;
+}
+.home-page .vehicle-grid {
+    gap: 20px;
+}
+.home-page .vehicle-card {
+    display: flex;
+    flex-direction: column;
+}
+.home-page .vehicle-media {
+    padding: 20px;
+}
+.home-page .home-image-placeholder {
+    color: var(--muted);
+    font-size: .85rem;
+}
+.home-page .vehicle-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 20px;
+}
+.home-page .vehicle-info h3 {
+    font-size: 1.1rem;
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+.home-page .vehicle-info .muted {
+    font-size: .85rem;
+}
+.home-page .home-card-price {
+    margin-top: auto;
+    padding-top: 22px;
+}
+.home-page .home-card-price > p {
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.home-page .vehicle-info .vehicle-price {
+    margin: 0;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.home-page .home-empty-state {
+    padding: 44px 20px;
+    border: 1px dashed rgba(79, 127, 208, .3);
+    border-radius: 14px;
+    text-align: center;
+    background: rgba(255, 255, 255, .55);
+}
+.home-page .home-empty-state p {
+    margin: 0 0 6px;
+    font-weight: 600;
+}
+.home-page .home-empty-state span {
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+@media (max-width: 700px) {
+    .home-page .section-head {
+        align-items: start;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .home-page .home-section-description {
+        max-width: none;
+    }
+    .home-page .hero-section {
+        min-height: 400px;
+    }
+}
+@media (max-width: 600px) {
+    .home-page .customer-navbar {
+        gap: 12px;
+    }
+    .home-page .customer-menu {
+        width: 100%;
+        gap: 10px 14px;
+    }
+    .home-page .customer-menu .nav-user {
+        flex: 1;
+        max-width: none;
+        font-size: .8rem;
+    }
+    .home-page .customer-menu form {
+        margin-left: auto;
+    }
+    .home-page .customer-menu .btn-ghost {
+        min-height: 40px;
+        padding: 8px 12px;
+        font-size: .85rem;
+    }
+    .home-page .home-container {
+        gap: 22px;
+        padding-block: 18px 40px;
+    }
+    .home-page .hero-section {
+        min-height: 380px;
+        padding: 28px 22px;
+        border-radius: 16px;
+    }
+    .home-page .hero-actions a {
+        flex: 1 1 180px;
+        justify-content: space-between;
+    }
+    .home-page .vehicle-grid {
+        gap: 16px;
+    }
+}
+
+/* ---------- Footer ---------- */
+/* ---------- Form và kết quả tìm kiếm: chỉ home.html ---------- */
+.home-page .search-section {
+    scroll-margin-top: 24px;
+    border-top: 3px solid var(--teal);
+}
+.home-page .vehicle-search-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px 20px;
+}
+.home-page .search-field {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+}
+.home-page .search-field label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    font-size: .88rem;
+    font-weight: 650;
+}
+.home-page .search-field label > span:not(.search-optional) {
+    color: var(--teal);
+}
+.home-page .search-optional {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: .73rem;
+    font-weight: 400;
+}
+.home-page .search-field input,
+.home-page .search-field select {
+    width: 100%;
+    min-width: 0;
+    min-height: 49px;
+    padding: 11px 12px;
+    border: 1px solid rgba(70, 110, 150, .26);
+    border-radius: 11px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: .9rem;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.home-page .search-field input:hover,
+.home-page .search-field select:hover {
+    border-color: var(--teal);
+}
+.home-page .search-field input:focus,
+.home-page .search-field select:focus {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(47, 149, 147, .1);
+}
+.home-page .search-field [aria-invalid="true"] {
+    border-color: #bc4d43;
+}
+.home-page .search-actions {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.home-page .search-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    flex: 1;
+    min-height: 49px;
+    padding: 11px 20px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: var(--teal);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 160ms ease;
+}
+.home-page .search-submit:hover { background: #257b79; }
+.home-page .search-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 49px;
+    padding: 10px 6px;
+    color: var(--muted);
+    font-size: .86rem;
+    white-space: nowrap;
+}
+.home-page .search-clear:hover { color: var(--teal); text-decoration: underline; }
+.home-page .search-note {
+    margin: 20px 0 0;
+    color: var(--muted);
+    font-size: .83rem;
+    line-height: 1.7;
+}
+.home-page .vehicle-search-form > .search-note {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.home-page .search-errors {
+    grid-column: 1 / -1;
+    padding: 15px 18px;
+    border: 1px solid #ecc6bf;
+    border-radius: 12px;
+    background: #fff5f2;
+    color: #963d32;
+    font-size: .9rem;
+}
+.home-page .search-errors ul { margin: 8px 0 0; padding-left: 20px; }
+.home-page .search-errors li + li { margin-top: 4px; }
+.home-page .search-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 30px;
+    min-height: 30px;
+    margin-left: 6px;
+    padding: 4px 8px;
+    border-radius: 9px;
+    background: var(--teal-soft);
+    color: #256e6d;
+    font-size: .85rem;
+    vertical-align: middle;
+}
+.home-page .search-period {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: right;
+    font-size: .8rem;
+}
+.home-page .search-edit { display: flex; width: fit-content; margin: 20px auto 0; }
+.home-page .search-category {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 10px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    background: #edf5fa;
+    color: var(--blue-deep);
+    font-size: .73rem;
+    overflow-wrap: anywhere;
+}
+.home-page .search-card-station { display: grid; gap: 3px; margin: 18px 0 0; }
+.home-page .search-card-station span { color: var(--muted); font-size: .75rem; }
+.home-page .search-card-station strong { font-size: .9rem; font-weight: 600; overflow-wrap: anywhere; }
+.home-page .search-quote > div { padding-top: 16px; border-top: 1px solid var(--line); }
+.home-page .search-days { margin: 5px 0 14px; color: var(--muted); font-size: .8rem; }
+.home-page .search-total { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; font-size: .88rem; }
+.home-page .search-total span { color: var(--muted); }
+.home-page .search-total strong { color: #256e6d; font-size: 1.05rem; overflow-wrap: anywhere; }
+.home-page .search-price-unavailable { color: #85571e; font-size: .85rem; }
+.home-page .search-price-unavailable p { margin: 7px 0; }
+.home-page .search-price-unavailable span { color: var(--muted); font-size: .8rem; }
+@media (max-width: 1000px) {
+    .home-page .vehicle-search-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    .home-page .search-period { text-align: left; }
+}
+@media (max-width: 600px) {
+    .home-page .vehicle-search-form { grid-template-columns: 1fr; gap: 18px; }
+    .home-page .search-actions { padding-top: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-page .search-field input,
+    .home-page .search-field select,
+    .home-page .search-submit { transition: none; }
+}
+
+/* ---------- Footer ---------- */
+.home-page .home-footer {
+    border-top: 1px solid var(--line);
+    background: linear-gradient(180deg, #e9f3f7, #e3f0ef);
+}
+.home-page .home-footer-content {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
+    gap: 32px 48px;
+    padding-block: 38px;
+}
+.home-page .home-footer-brand p {
+    margin: 16px 0 0;
+    color: var(--muted);
+    font-size: .9rem;
+    line-height: 1.75;
+}
+.home-page .home-footer-brand .brand-logo img {
+    height: 42px;
+}
+.home-page .home-footer-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+}
+.home-page .home-footer-links h2 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: .9rem;
+    font-weight: 650;
+}
+.home-page .home-footer-links a {
+    padding-block: 6px;
+    color: var(--muted);
+    font-size: .875rem;
+}
+.home-page .home-footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    padding-block: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+}
+.home-page .home-footer-bottom small {
+    font-size: .8rem;
+}
+.home-page .home-footer-bottom a {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding-block: 6px;
+    color: var(--muted);
+    font-size: .85rem;
+}
+.home-page .home-footer-links a:hover,
+.home-page .home-footer-bottom a:hover {
+    color: var(--teal);
+}
+
+/* ---------- Trang chi tiết mẫu xe ---------- */
+.home-page .model-detail-link {
+    width: 100%;
+    margin-top: 16px;
+}
+.home-page .model-detail-image {
+    display: block;
+    width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    margin-block: 20px;
+}
+.home-page .model-vehicle-details {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px 18px;
+    margin: 18px 0 0;
+    font-size: .9rem;
+}
+.home-page .model-vehicle-details dt {
+    color: var(--muted);
+}
+.home-page .model-vehicle-details dd {
+    margin: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+    .home-page .home-footer-content {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px 20px;
+        padding-block: 28px;
+    }
+    .home-page .home-footer-brand {
+        grid-column: 1 / -1;
+    }
+}

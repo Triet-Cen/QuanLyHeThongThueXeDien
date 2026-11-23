@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Mẫu xe', 'models', ~{::#model-editor})}">
+<body>
+<section id="model-editor" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2 th:text="${modelId == null ? 'Thêm mẫu xe' : 'Sửa mẫu xe'}"></h2>
+    </div>
+
+    <p th:if="${#lists.isEmpty(categories)}">
+        Hãy <a th:href="@{/admin/categories/new}">thêm loại xe</a> trước khi lưu mẫu xe.
+    </p>
+
+    <form class="admin-form" method="post"
+          th:object="${vehicleModelForm}"
+          th:action="${modelId == null}
+              ? @{/admin/models}
+              : @{/admin/models/{id}(id=${modelId})}">
+
+        <p class="admin-message error"
+           th:each="error : ${#fields.globalErrors()}"
+           th:text="${error}"></p>
+
+        <div class="admin-form-grid">
+            <label class="admin-field">
+                <span>Tên mẫu xe</span>
+                <input type="text" th:field="*{modelName}" maxlength="255" required>
+                <small th:errors="*{modelName}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Hãng xe</span>
+                <input type="text" th:field="*{brand}" maxlength="255" required>
+                <small th:errors="*{brand}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Số chỗ ngồi</span>
+                <input type="number" th:field="*{seatCount}" min="1" required>
+                <small th:errors="*{seatCount}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Loại xe</span>
+                <select th:field="*{categoryId}" required>
+                    <option value="">Chọn loại xe</option>
+                    <option th:each="category : ${categories}"
+                            th:value="${category.categoryId}"
+                            th:text="${category.categoryName}"></option>
+                </select>
+                <small th:errors="*{categoryId}"></small>
+            </label>
+
+            <label class="admin-field">
+                <span>Mô tả</span>
+                <textarea th:field="*{description}" rows="4" maxlength="1000"></textarea>
+                <small th:errors="*{description}"></small>
+            </label>
+        </div>
+
+        <div class="inline-actions">
+            <button class="admin-button" type="submit"
+                    th:disabled="${#lists.isEmpty(categories)}">Lưu</button>
+            <a class="admin-button light" th:href="@{/admin/models}">Quay lại</a>
+        </div>
+    </form>
+</section>
+</body>
+</html>

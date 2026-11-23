@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{admin/fragment/layout :: layout('Loại xe', 'categories', ~{::#category-list})}">
+<body>
+<section id="category-list" class="admin-panel">
+    <div class="admin-panel-header">
+        <h2>Danh sách loại xe</h2>
+        <a class="admin-button" th:href="@{/admin/categories/new}">Thêm loại xe</a>
+    </div>
+
+    <div class="admin-message success" th:if="${successMessage != null}"
+         th:text="${successMessage}"></div>
+    <div class="admin-message error" th:if="${errorMessage != null}"
+         th:text="${errorMessage}"></div>
+
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+            <tr>
+                <th>Mã loại</th>
+                <th>Tên loại xe</th>
+                <th>Mô tả</th>
+                <th>Thao tác</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="category : ${categories}">
+                <td th:text="|LX${category.categoryId}|"></td>
+                <td th:text="${category.categoryName}"></td>
+                <td th:text="${category.description ?: '—'}"></td>
+                <td>
+                    <div class="inline-actions">
+                        <a class="admin-button light"
+                           th:href="@{/admin/categories/{id}/edit(id=${category.categoryId})}">
+                            Sửa
+                        </a>
+                        <form class="inline-form" method="post"
+                              th:action="@{/admin/categories/{id}/visibility(id=${category.categoryId})}">
+                            <input type="hidden" name="visible"
+                                   th:value="${category.categoryStatus == 'INACTIVE'}">
+                            <button class="admin-button light" type="submit"
+                                    th:text="${category.categoryStatus == 'INACTIVE' ? 'Hiện lại' : 'Ẩn'}"></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(categories)}">
+                <td colspan="4">Chưa có loại xe nào.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

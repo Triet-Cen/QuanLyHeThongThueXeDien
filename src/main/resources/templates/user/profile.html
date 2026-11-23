@@ -1,0 +1,128 @@
+﻿<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hồ sơ của tôi | E-Vehicle Rental</title>
+    <link rel="stylesheet" th:href="@{/css/customer.css}">
+    <link rel="stylesheet" th:href="@{/css/profile.css}">
+</head>
+<body class="customer-page profile-page">
+<nav class="customer-navbar">
+    <a class="brand-link" th:href="@{/home}" aria-label="Về trang chủ">
+        <span class="brand-logo">
+            <img th:src="@{/images/logo/logo.png}" alt="E-Vehicle Rental">
+        </span>
+    </a>
+    <div class="customer-menu">
+        <a th:href="@{/home}">Trang chủ</a>
+        <a th:if="${session.bookingSelection != null}" th:href="@{/bookings/confirm}">Tiếp tục đặt xe</a>
+        <a class="nav-user active" th:href="@{/profile}" th:text="${email}">Email khách hàng</a>
+        <form th:action="@{/logout}" method="post">
+            <button type="submit" class="btn-ghost">Đăng xuất</button>
+        </form>
+    </div>
+</nav>
+
+<main class="customer-container profile-container">
+    <div class="profile-breadcrumb">
+        <a th:href="@{/home}">Trang chủ</a>
+        <span aria-hidden="true">/</span>
+        <span>Hồ sơ của tôi</span>
+    </div>
+
+    <header class="profile-heading">
+        <div>
+            <p class="profile-eyebrow">TÀI KHOẢN KHÁCH HÀNG</p>
+            <h1>Hồ sơ của tôi</h1>
+            <p>Quản lý thông tin liên hệ cho những chuyến đi sắp tới.</p>
+        </div>
+        <div class="profile-heading-mark" aria-hidden="true">EV</div>
+    </header>
+
+    <div class="profile-grid">
+        <aside class="profile-summary" aria-label="Tóm tắt tài khoản">
+            <div class="profile-avatar" aria-hidden="true">✦</div>
+            <p class="profile-summary-label">Tài khoản đang đăng nhập</p>
+            <p class="profile-summary-email" th:text="${email}">email@example.com</p>
+            <div class="profile-summary-divider"></div>
+            <p><a class="btn-ghost" th:href="@{/profile/license}">Giấy phép lái xe</a></p>
+            <p class="profile-summary-note">
+                Email dùng để đăng nhập và được hiển thị tại đây. Bạn có thể cập nhật thông tin cá nhân ở bên cạnh.
+            </p>
+        </aside>
+
+        <section class="profile-panel" aria-labelledby="personal-info-title">
+            <div class="profile-panel-head">
+                <div>
+                    <p class="profile-section-number">01 / THÔNG TIN CÁ NHÂN</p>
+                    <h2 id="personal-info-title">Thông tin của bạn</h2>
+                    <p>Các trường có dấu <span class="required-mark">*</span> là bắt buộc.</p>
+                </div>
+            </div>
+
+            <div class="profile-alert profile-alert-success" role="status"
+                 th:if="${successMessage}" th:text="${successMessage}"></div>
+
+            <form class="profile-form" th:action="@{/profile}"
+                  th:object="${profileForm}" method="post">
+                <div class="profile-field">
+                    <label for="profileEmail">Email đăng ký</label>
+                    <input id="profileEmail" type="email" th:value="${email}" readonly
+                           aria-describedby="emailHelp">
+                    <small id="emailHelp">Email này gắn với tài khoản đăng nhập của bạn.</small>
+                </div>
+
+                <div class="profile-fields-row">
+                    <div class="profile-field">
+                        <label for="fullName">Họ và tên <span class="required-mark">*</span></label>
+                        <input id="fullName" type="text" th:field="*{fullName}"
+                               autocomplete="name" maxlength="255" required
+                               th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid' : ''"
+                               th:attr="aria-invalid=${#fields.hasErrors('fullName')}">
+                        <small class="profile-error" th:if="${#fields.hasErrors('fullName')}"
+                               th:errors="*{fullName}"></small>
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="phone">Số điện thoại <span class="required-mark">*</span></label>
+                        <input id="phone" type="tel" th:field="*{phone}"
+                               autocomplete="tel" inputmode="numeric" maxlength="10"
+                               pattern="0[0-9]{9}" required
+                               th:classappend="${#fields.hasErrors('phone')} ? 'is-invalid' : ''"
+                               th:attr="aria-invalid=${#fields.hasErrors('phone')}">
+                        <small class="profile-error" th:if="${#fields.hasErrors('phone')}"
+                               th:errors="*{phone}"></small>
+                    </div>
+                </div>
+
+                <div class="profile-fields-row">
+                    <div class="profile-field">
+                        <label for="birthDate">Ngày sinh</label>
+                        <input id="birthDate" type="date" th:field="*{birthDate}"
+                               th:classappend="${#fields.hasErrors('birthDate')} ? 'is-invalid' : ''">
+                        <small class="profile-error" th:if="${#fields.hasErrors('birthDate')}"
+                               th:errors="*{birthDate}"></small>
+                    </div>
+
+                    <div class="profile-field">
+                        <label for="address">Địa chỉ</label>
+                        <input id="address" type="text" th:field="*{address}"
+                               autocomplete="street-address" maxlength="255"
+                               th:classappend="${#fields.hasErrors('address')} ? 'is-invalid' : ''">
+                        <small class="profile-error" th:if="${#fields.hasErrors('address')}"
+                               th:errors="*{address}"></small>
+                    </div>
+                </div>
+
+                <div class="profile-form-actions">
+                    <p>Thông tin sẽ được lưu vào hồ sơ của bạn.</p>
+                    <button class="profile-save-button" type="submit">Lưu thông tin</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>
+

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      th:fragment="layout(pageTitle, activePage, content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${pageTitle + ' - E-Vehicle Admin'}">E-Vehicle Admin</title>
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+
+<body class="admin-body">
+<div class="admin-shell">
+
+    <aside class="admin-sidebar">
+        <div class="admin-brand">
+            <div class="admin-brand-mark"></div>
+            <div>
+                <div class="admin-brand-title"></div>
+                <div class="admin-brand-subtitle">Quản trị cho thuê xe điện</div>
+            </div>
+        </div>
+
+        <div class="admin-user">
+            <strong th:text="${adminName ?: 'Quản trị viên'}">Quản trị viên</strong>
+            <span>ADMIN ACCESS</span>
+        </div>
+
+        <nav class="admin-nav-group" aria-label="Menu quản trị">
+            <details class="admin-nav-section" open>
+                <summary class="admin-nav-label">
+                    Tổng quan <span class="admin-nav-caret"></span>
+                </summary>
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'dashboard' ? 'active' : ''}"
+                   th:href="@{/admin}">
+                    <span class="admin-nav-icon">D</span>
+                    Dashboard
+                </a>
+            </details>
+
+            <details class="admin-nav-section"
+                     th:attr="open=${activePage == 'stations' or activePage == 'categories' or activePage == 'models' ? 'open' : null}">
+                <summary class="admin-nav-label">
+                    Master Data <span class="admin-nav-caret"></span>
+                </summary>
+
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'stations' ? 'active' : ''}"
+                   th:href="@{/admin/stations}">
+                    <span class="admin-nav-icon">ST</span>
+                    Trạm xe
+                </a>
+
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'categories' ? 'active' : ''}"
+                   th:href="@{/admin/categories}">
+                    <span class="admin-nav-icon">LX</span>
+                    Loại xe
+                </a>
+
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'models' ? 'active' : ''}"
+                   th:href="@{/admin/models}">
+                    <span class="admin-nav-icon">MX</span>
+                    Mẫu xe
+                </a>
+
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'vehicles' ? 'active' : ''}"
+                   th:href="@{/admin/vehicles}">
+                    <span class="admin-nav-icon">XE</span>
+                    Quản lý xe
+                </a>
+
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'rental-prices' ? 'active' : ''}"
+                   th:href="@{/admin/rental-prices}">
+                    <span class="admin-nav-icon">GT</span>
+                    Giá thuê xe
+                </a>
+            </details>
+
+            <details class="admin-nav-section" open>
+                <summary class="admin-nav-label">
+                    Hồ sơ khách hàng
+                    <span class="admin-nav-caret"></span>
+                </summary>
+
+                <a class="admin-nav-link"
+                   th:classappend="${activePage == 'licenses' ? 'active' : ''}"
+                   th:href="@{/admin/licenses}">
+                    <span class="admin-nav-icon">GPLX</span>
+                    Giấy phép lái xe
+                </a>
+            </details>
+        </nav>
+    </aside>
+
+    <main class="admin-main">
+        <header class="admin-topbar">
+            <div class="admin-topbar-left">
+                <div class="admin-page-kicker">Quản trị hệ thống</div>
+                <div class="admin-page-title" th:text="${pageTitle}">Tổng quan</div>
+            </div>
+
+
+
+            <div class="admin-topbar-actions">
+                <form th:action="@{/logout}" method="post">
+                    <button class="admin-button light" type="submit">
+                        Đăng xuất
+                    </button>
+                </form>
+            </div>
+        </header>
+
+        <div class="admin-content">
+            <th:block th:replace="${content}"></th:block>
+        </div>
+    </main>
+
+</div>
+</body>
+</html>
