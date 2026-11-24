@@ -25,6 +25,8 @@ public class BookingController {
     private final BookingService service;
     private final RentalClock clock;
 
+    private final RentalRefundService refunds;
+
     @GetMapping
     public String list(Principal principal, Model model) {
         model.addAttribute("rentals", service.own(principal.getName()));
@@ -87,6 +89,7 @@ public class BookingController {
     public String view(@PathVariable Integer id, Principal principal, Model model) {
         var rental = service.view(principal.getName(), id);
         model.addAttribute("rental", rental);
+        if ("CANCELLED".equalsIgnoreCase(rental.getStatus())) model.addAttribute("refund",refunds.customerView(principal.getName(),id));
         boolean activeHold = rental.hasActiveHold(clock.now());
         model.addAttribute("activeHold", activeHold);
         if (activeHold) {
@@ -97,6 +100,16 @@ public class BookingController {
         model.addAttribute("holdUntil", rental.getHoldExpiresAt().atZone(RentalClock.ZONE).toInstant().toEpochMilli());
         model.addAttribute("email", principal.getName());
         return "user/booking-pending";
+    }
+
+    @PostMapping("/{id}/refund-request")
+    public String requestRefund(@PathVariable int id,Principal principal,@RequestParam String bank,@RequestParam String number,
+            @RequestParam String holder,@RequestParam String note,RedirectAttributes redirect) {
+        try {
+            refunds.request(principal.getName(),id,bank,number,holder,note);
+            redirect.addFlashAttribute("successMessage","Đã ghi nhận yêu cầu hoàn tiền.");
+        } catch(IllegalArgumentException e) { redirect.addFlashAttribute("errorMessage",e.getMessage()); }
+        return "redirect:/bookings/"+id;
     }
 
     @PostMapping("/{id}/cancel")

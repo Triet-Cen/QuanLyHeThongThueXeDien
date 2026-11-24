@@ -14,6 +14,8 @@ public class Coupon {
     @Column(name = "SoLuongConLai") private Integer remainingQuantity;
     @Column(name = "TrangThai") private String status;
 
+    public void restoreReservedUse() { remainingQuantity = Math.incrementExact(remainingQuantity); }
+
     public void consumeReservedUse() {
         if (remainingQuantity == null || remainingQuantity <= 0) throw new IllegalStateException("Mã đã hết lượt.");
         remainingQuantity--;

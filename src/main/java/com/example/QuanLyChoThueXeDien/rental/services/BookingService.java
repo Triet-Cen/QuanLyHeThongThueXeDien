@@ -143,12 +143,62 @@ public class BookingService {
             rental.setStatus("CANCELLED");
             record(rental, previous, expired || actor == null ? null : actor.getAccountId(),
                 expired ? "PAYMENT_TIMEOUT" : "CUSTOMER_CANCELLED", now);
+        } else if (cancel && "BOOKED".equalsIgnoreCase(rental.getStatus())) {
+            boolean beforePickup = now.isBefore(rental.getStartAt());
+            cancelBooked(rental, actor, beforePickup ? "BR39" : "XN01: cần xác định quyền hoàn", now);
         } else if (cancel && !"CANCELLED".equalsIgnoreCase(rental.getStatus())) {
             throw new IllegalArgumentException("Chỉ được hủy đơn đang chờ thanh toán.");
         }
         // Initialize display data inside the transaction; the template never needs another customer's data.
         rental.getVehicle().getVehicleModel().getModelName(); rental.getPickupStation().getStationName();
         return rental;
+    }
+
+    @Transactional
+    public void cancelForNoReplacement(String email, int id, String reason) {
+        Account actor = accounts.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
+        em.refresh(actor, LockModeType.PESSIMISTIC_WRITE);
+        if (!"ADMIN".equalsIgnoreCase(actor.getRole()) || !"ACTIVE".equalsIgnoreCase(actor.getStatus()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        Rental rental = lockRental(null,id);
+        if ("CANCELLED".equalsIgnoreCase(rental.getStatus())) return;
+        if (reason == null || reason.isBlank() || reason.length()>500)
+            throw new IllegalArgumentException("Vui lòng nhập lý do hủy, tối đa 500 ký tự.");
+        var incidents = em.createNativeQuery("""
+            SELECT MaSuCo FROM bao_cao_su_co WHERE MaDonThue=:id AND MaXe=:vehicle
+            AND TrangThaiXuLy='NO_REPLACEMENT' ORDER BY MaSuCo DESC LIMIT 1 FOR UPDATE
+            """).setParameter("id",id).setParameter("vehicle",rental.getVehicle().getVehicleId()).getResultList();
+        if (incidents.isEmpty()) throw new IllegalArgumentException("Cần kết luận của Staff về việc không có xe thay.");
+        cancelBooked(rental,actor,"BR41 – sự cố #"+incidents.get(0)+" – "+reason.trim(),clock.now());
+    }
+
+    private void cancelBooked(Rental rental, Account actor, String reason, LocalDateTime now) {
+        int id = rental.getRentalId();
+        if (!"BOOKED".equalsIgnoreCase(rental.getStatus()) || !em.createNativeQuery(
+            "SELECT MaBBGiao FROM bien_ban_giao_xe WHERE MaDonThue=:id FOR UPDATE")
+            .setParameter("id",id).getResultList().isEmpty())
+            throw new IllegalArgumentException("Chỉ hủy được đơn Đã đặt và chưa bàn giao.");
+        var sources = em.createNativeQuery("""
+            SELECT g.MaGD,g.SoTien FROM payment_allocation a JOIN giao_dich_thanh_toan g ON g.MaGD=a.transaction_id
+            WHERE a.obligation=:key AND g.MaDonThue=:id AND g.TrangThaiGD='SUCCESS'
+            AND g.PhuongThucThanhToan='VNPAY' AND g.LoaiThanhToan='RENTAL' FOR UPDATE
+            """).setParameter("key","RENTAL:"+id).setParameter("id",id).getResultList();
+        if (!sources.isEmpty()) {
+            if (rental.getCouponCode()!=null) coupons.findForUpdate(rental.getCouponCode()).orElseThrow().restoreReservedUse();
+        } else {
+            reason += " – Cần đối soát nguồn thanh toán lịch sử";
+        }
+        Vehicle vehicle = rental.getVehicle();
+        var other = em.createNativeQuery("""
+            SELECT UPPER(TrangThaiDon) FROM don_thue_xe WHERE MaXe=:vehicle AND MaDonThue<>:id
+            AND TrangThaiDon IN ('BOOKED','RENTED') FOR UPDATE
+            """).setParameter("vehicle",vehicle.getVehicleId()).setParameter("id",id).getResultList();
+        boolean maintenance = "Maintenance".equalsIgnoreCase(vehicle.getVehicleStatus()) || !em.createNativeQuery(
+            "SELECT MaBaoTri FROM bao_tri_xe WHERE MaXe=:vehicle AND NgayHoanTat IS NULL FOR UPDATE")
+            .setParameter("vehicle",vehicle.getVehicleId()).getResultList().isEmpty();
+        vehicle.setVehicleStatus(other.contains("RENTED") ? "Rented" : maintenance ? "Maintenance" : other.contains("BOOKED") ? "Booked" : "Available");
+        rental.setStatus("CANCELLED");
+        record(rental,"BOOKED",actor.getAccountId(),reason,now);
     }
 
     private BookingQuote calculate(BookingForm form, Vehicle vehicle, String eligibility, boolean locked) {
@@ -256,7 +306,7 @@ public class BookingService {
         notification.setTitle(previous == null ? "Đã tạo đơn chờ thanh toán" : "Đơn thuê đã hủy");
         notification.setContent("Đơn #" + rental.getRentalId() + (previous == null
             ? ": vui lòng thanh toán trước " + rental.getHoldExpiresAt().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"))
-            : ("PAYMENT_TIMEOUT".equals(reason) ? ": đã hết hạn thanh toán." : ": đã hủy theo yêu cầu của bạn.")));
+            : ("PAYMENT_TIMEOUT".equals(reason) ? ": đã hết hạn thanh toán." : ": đã hủy. " + reason)));
         notification.setSentAt(now); em.persist(notification);
     }
 }

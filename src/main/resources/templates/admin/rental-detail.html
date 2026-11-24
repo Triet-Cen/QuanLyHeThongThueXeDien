@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{admin/fragment/layout :: layout('Chi tiết đơn thuê','rentals',~{::#rentals})}">
+<body><section id="rentals" class="rental-workspace">
+
+<a th:href="@{/admin/rentals(q=${param.q},station=${param.station},status=${param.status},basis=${param.basis},from=${param.from},to=${param.to},flag=${param.flag},size=${param.size},page=${param.page})}">← Danh sách đơn thuê</a>
+<header class="work-heading">
+    <h2 th:text="|Đơn thuê DT${r.MaDonThue}|"></h2>
+    <span th:replace="~{admin/fragment/rental-status :: badge(${r.TrangThaiDon})}"></span>
+</header>
+<p class="reason" role="status" th:if="${message}" th:text="${message}"></p>
+<div class="detail-grid"><section class="work-card"><h3>Khách và xe</h3><dl class="detail-facts">
+<dt>Khách thuê</dt><dd th:text="${r.HoTen}"></dd>
+<dt>Email</dt><dd th:text="${r.Email}"></dd>
+<dt>Điện thoại</dt><dd th:text="${r.SoDienThoai}"></dd>
+<dt>Mẫu xe</dt><dd th:text="${r.TenMauXe}"></dd>
+<dt>Biển số</dt><dd th:text="${r.BienSo}"></dd>
+<dt>Trạng thái xe</dt><dd th:text="${r.TrangThaiXe}"></dd>
+<dt>Trạm nhận/trả</dt><dd th:text="${r.TenTram}"></dd>
+</dl></section><section class="work-card"><h3>Lịch thuê</h3><dl class="detail-facts"><dt>Ngày tạo</dt><dd th:text="${r.NgayTao}"></dd>
+<dt>Giờ nhận dự kiến</dt><dd class="schedule-time"><strong th:text="${r.pickupDate}"></strong><small th:text="${r.pickupTime}"></small></dd>
+<dt>Giờ trả dự kiến</dt><dd class="schedule-time"><strong th:text="${r.returnDate}"></strong><small th:text="${r.returnTime}"></small></dd>
+<dt>Hạn giữ lịch</dt><dd th:text="${r.ThoiHanGiuCho}"></dd>
+<dt>Số ngày</dt><dd th:text="${r.SoNgayThue}"></dd>
+</dl></section><section class="work-card"><h3>Giá đã chốt</h3><dl class="detail-facts"><dt>Đơn giá chốt (đ/ngày)</dt><dd th:text="${r.DonGiaNgayApDung}"></dd>
+<dt>Tiền thuê trước giảm (đ)</dt><dd th:text="${r.TienThue}"></dd>
+<dt>Mã giảm</dt><dd th:text="${r.MaGiamGia}"></dd>
+<dt>Tiền giảm (đ)</dt><dd th:text="${r.TienGiam}"></dd>
+<dt>Tổng tiền thuê chốt (đ)</dt><dd th:text="${r.TongTienThue}"></dd></dl></section></div>
+<form class="work-card cancel-box" th:if="${#strings.equalsIgnoreCase(r.TrangThaiDon,'BOOKED') and r.noReplacement == 1 and r.handed == 0}" method="post" th:action="@{/admin/rentals/{id}/cancel-company(id=${r.MaDonThue})}">
+<p>Hủy đơn sẽ giải phóng lịch xe. Quyền hoàn tiền thuê theo BR41 được xử lý bên ngoài ứng dụng.</p>
+<label>Lý do xác nhận không có xe thay <input name="reason" maxlength="500" required></label><button class="admin-button">Xác nhận hủy đơn</button></form>
+<details class="work-card record-group" th:each="s : ${sections}" th:open="${!s.value.empty}"><summary><strong th:text="${s.key}"></strong><span th:text="${s.value.size()}"></span></summary><p th:if="${s.value.empty}">Chưa phát sinh</p>
+<div th:unless="${s.value.empty}" class="admin-table-wrap"><table class="admin-table"><thead><tr><th th:each="col : ${s.value[0].keySet()}" th:text="${col}"></th></tr></thead><tbody><tr th:each="row : ${s.value}"><td th:each="cell : ${row}" th:text="${cell.key == 'MaDonThue' ? 'DT' + cell.value : cell.value}"></td></tr></tbody></table></div></details>
+<div th:each="h : ${sections['Hoàn tiền']}">
+<form th:if="${h.LyDoHoan=='BR39' and (h.TrangThaiHoanTien=='PENDING' or h.TrangThaiHoanTien=='PROCESSING')}" method="post" th:action="@{/admin/rentals/{id}/refunds/{refund}(id=${r.MaDonThue},refund=${h.MaHoanTien})}">
+<div th:if="${h.TrangThaiHoanTien=='PROCESSING'}">
+<label>Mã giao dịch đã hoàn <input name="reference" maxlength="100" required></label>
+<label>Thời điểm hoàn <input type="datetime-local" step="1" name="paidAt" required></label>
+<label>Tham chiếu chứng từ <input name="evidence" maxlength="500" required></label></div>
+<input type="hidden" name="confirm" th:value="${h.TrangThaiHoanTien=='PROCESSING'}">
+<button class="admin-button light" th:text="${(h.TrangThaiHoanTien=='PENDING'?'Tiếp nhận hồ sơ hoàn #':'Ghi nhận đã hoàn thủ công #') + h.MaHoanTien}"></button></form></div>
+<a th:href="@{/admin/payments/reconciliation}">Xử lý đối soát VNPay</a>
+</section></body></html>

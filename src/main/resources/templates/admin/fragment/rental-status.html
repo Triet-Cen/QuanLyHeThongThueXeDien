@@ -1,0 +1,9 @@
+<span xmlns:th="http://www.thymeleaf.org"
+      th:fragment="badge(status)"
+      th:with="code=${status == null ? '' : #strings.toUpperCase(#strings.trim(status))},
+               state=${code == 'CHỜ THANH TOÁN' ? 'PENDING_PAYMENT' : code}"
+      class="order-state"
+      th:attr="data-state=${state}">
+    <span class="order-state-dot" aria-hidden="true"></span>
+    <span th:text="${state.isEmpty() ? 'Chưa có trạng thái' : (statuses.get(state) ?: #strings.trim(status))}"></span>
+</span>

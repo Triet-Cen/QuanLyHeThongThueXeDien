@@ -239,6 +239,85 @@ class BookingDatabaseIT {
             return db.queryForObject("select count(*) from payment_allocation where obligation=?",Integer.class,"RENTAL:"+rentalId);
         }
 
+        @Test void ar17_18_19_28_30_cancelPaidBookingConcurrently() throws Exception {
+            assertEquals("00",payments.handleIpn(callback));
+            try {
+                assertEquals(List.of(1,1),race(()->{service.cancel(fixture.a(),rentalId);return 1;},
+                    ()->{service.cancel(fixture.a(),rentalId);return 1;}));
+                assertEquals("CANCELLED",service.view(fixture.a(),rentalId).getStatus());
+                assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM hoan_tien WHERE MaDonThue=?",Integer.class,rentalId));
+                var repo=new com.example.QuanLyChoThueXeDien.rental.repositories.AdminRentalRepository(
+                    new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(db));
+                var refunds=new RentalRefundService(repo,db,new RentalClock(clock));
+                Runnable submit=()->tx.executeWithoutResult(s->refunds.request(fixture.a(),rentalId,"Test","00123","Customer","Fixture"));
+                assertThrows(IllegalArgumentException.class,()->tx.executeWithoutResult(s->refunds.request(fixture.b(),rentalId,"Test","00123","Customer","Fixture")));
+                assertThrows(IllegalStateException.class,()->tx.executeWithoutResult(s->{
+                    refunds.request(fixture.a(),rentalId,"Test","00123","Customer","Fixture");
+                    throw new IllegalStateException("fixture rollback");
+                }));
+                assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM hoan_tien WHERE MaDonThue=?",Integer.class,rentalId));
+                assertEquals(List.of(1,1),race(()->{submit.run();return 1;},()->{submit.run();return 1;}));
+                assertEquals(1,db.queryForObject("""
+                    SELECT COUNT(*) FROM hoan_tien h JOIN giao_dich_thanh_toan g ON g.MaGD=h.MaGDGoc
+                    WHERE h.MaDonThue=? AND h.SoTienHoan=g.SoTien AND h.NgayHoanTat IS NULL
+                    AND h.TrangThaiHoanTien='PENDING' AND g.txn_ref=?
+                    """,Integer.class,rentalId,ref));
+                assertEquals(1,tx.execute(s->em.find(Coupon.class,fixture.coupon()).getRemainingQuantity()).intValue());
+                db.update("UPDATE tai_khoan SET VaiTro='ADMIN' WHERE MaTK=?",fixture.accountB());
+                int refund=db.queryForObject("SELECT MaHoanTien FROM hoan_tien WHERE MaDonThue=?",Integer.class,rentalId);
+                tx.executeWithoutResult(s->refunds.process(fixture.b(),rentalId,refund,false,null,null,null));
+                assertThrows(IllegalArgumentException.class,()->tx.executeWithoutResult(s->refunds.process(fixture.b(),rentalId,refund,true,null,null,null)));
+                Runnable record=()->tx.executeWithoutResult(s->refunds.process(fixture.b(),rentalId,refund,true,ref,"fixture receipt",new RentalClock(clock).now()));
+                assertEquals(List.of(1,1),race(()->{record.run();return 1;},()->{record.run();return 1;}));
+                assertEquals("COMPLETED",refunds.customerView(fixture.a(),rentalId).get("status"));
+            } finally {
+                db.update("DELETE FROM thong_bao WHERE TieuDe='Yêu cầu hoàn tiền mới' AND NoiDung=?","Khách gửi yêu cầu hoàn cho đơn DT"+rentalId);
+                db.update("DELETE FROM hoan_tien WHERE MaDonThue=?",rentalId);
+            }
+        }
+
+        @Test void ar12_13_29_companyCancellationRequiresIncidentAndRefundEvidence() {
+            assertEquals("00",payments.handleIpn(callback));
+            db.update("UPDATE tai_khoan SET VaiTro='ADMIN' WHERE MaTK=?",fixture.accountB());
+            assertThrows(IllegalArgumentException.class,()->service.cancelForNoReplacement(fixture.b(),rentalId,"Xe hỏng"));
+            var repo=new com.example.QuanLyChoThueXeDien.rental.repositories.AdminRentalRepository(
+                new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(db));
+            var refunds=new RentalRefundService(repo,db,new RentalClock(clock));
+            try {
+                db.update("INSERT INTO nhan_vien(MaTK,MaTram,HoTen,SoDienThoai,TrangThaiLamViec) VALUES(?,?,'Fixture','0900000000','ACTIVE')",fixture.accountA(),fixture.station());
+                db.update("""
+                    INSERT INTO bao_cao_su_co(MaXe,MaDonThue,MaNVLap,ThoiGianPhatHien,MoTaSuCo,MucDo,TrangThaiXuLy)
+                    SELECT ?,?,MaNV,NOW(),'Fixture','HIGH','NO_REPLACEMENT' FROM nhan_vien WHERE MaTK=?
+                    """,fixture.x(),rentalId,fixture.accountA());
+                service.cancelForNoReplacement(fixture.b(),rentalId,"Xe hỏng");
+                assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM hoan_tien WHERE MaDonThue=?",Integer.class,rentalId));
+            } finally {
+                db.update("DELETE FROM hoan_tien WHERE MaDonThue=?",rentalId);
+                db.update("DELETE FROM bao_cao_su_co WHERE MaDonThue=?",rentalId);
+                db.update("DELETE FROM nhan_vien WHERE MaTK=?",fixture.accountA());
+            }
+        }
+
+        @Test void customerCancellingAtPickupCannotSubmitRefund() {
+            assertEquals("00",payments.handleIpn(callback));
+            clock.instant.set(start.atZone(RentalClock.ZONE).toInstant());
+            service.cancel(fixture.a(),rentalId);
+            var refunds=new RentalRefundService(null,db,new RentalClock(clock));
+            assertTrue(refunds.customerView(fixture.a(),rentalId).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->tx.executeWithoutResult(s->
+                refunds.request(fixture.a(),rentalId,"Test","0001","Customer","Fixture")));
+        }
+
+        @Test void ar05_07_08_readPaidRentalWithSnapshot() {
+            var repo=new com.example.QuanLyChoThueXeDien.rental.repositories.AdminRentalRepository(
+                new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(db));
+            var result=repo.search(String.valueOf(rentalId),null,"PENDING_PAYMENT","created",null,null,"",1,20,LocalDateTime.now());
+            assertTrue(result.rows().stream().anyMatch(row->row.get("MaDonThue").equals(rentalId)));
+            assertEquals("00",payments.handleIpn(callback));
+            assertEquals(1,repo.records(rentalId).get("Phân bổ").size());
+            assertEquals(service.view(fixture.a(),rentalId).getTotalAmount(),repo.rental(rentalId).get("TongTienThue"));
+        }
+
         @Test void vp10_17_rollbackThenConcurrentRetriesAllocateExactlyOnce() throws Exception {
             failNotification.set(true);
             assertThrows(RuntimeException.class,()->payments.handleIpn(callback));

@@ -45,6 +45,7 @@ class BookingSecurityTests {
     @Import({SecurityConfig.class, BookingController.class, RentalClock.class, PaymentController.class, VehicleSearchController.class})
     static class Config {
         @Bean CustomUserDetailsService users() { return mock(CustomUserDetailsService.class); }
+        @Bean RentalRefundService refunds() { return mock(RentalRefundService.class); }
         @Bean BookingService bookings() { return mock(BookingService.class); }
         @Bean PaymentService payments() { return mock(PaymentService.class); }
         @Bean VehicleSearchService search() { return mock(VehicleSearchService.class); }
@@ -58,6 +59,7 @@ class BookingSecurityTests {
     }
     @Autowired WebApplicationContext context;
     @Autowired BookingService service;
+    @Autowired RentalRefundService refunds;
     @Autowired PaymentService payments;
     @Autowired VehicleSearchService search;
     MockMvc mvc;
@@ -146,6 +148,16 @@ class BookingSecurityTests {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("Thanh toán qua VNPay")))
             .andExpect(content().string(org.hamcrest.Matchers.containsString(PaymentService.rentalInvoice(r).key())));
         mvc.perform(get("/bookings").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk());
+        r.setStatus("CANCELLED");
+        when(refunds.customerView("a",8)).thenReturn(java.util.Map.of("amount",BigDecimal.TEN,"requestAvailable",false));
+        mvc.perform(get("/bookings/8").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("chưa sẵn sàng")))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/refund-request"))));
+        when(refunds.customerView("a",8)).thenReturn(java.util.Map.of("amount",BigDecimal.TEN,"requestAvailable",true));
+        mvc.perform(get("/bookings/8").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("action=\"/bookings/8/refund-request\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(">Gửi yêu cầu hoàn tiền</button>")));
+        r.setStatus("PENDING_PAYMENT");
         when(payments.getInvoice("a",8,false)).thenReturn(new PaymentInvoice(r,false,java.util.List.of(),BigDecimal.TEN,"snapshot"));
         mvc.perform(get("/bookings/8/invoice").with(user("a").roles("CUSTOMER"))).andExpect(status().isOk())
             .andExpect(content().string(org.hamcrest.Matchers.containsString("snapshot")))

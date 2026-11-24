@@ -9,4 +9,9 @@
 .booking-page .booking-actions{display:flex;flex-wrap:wrap;gap:.8rem;margin:1rem 0}
 .booking-page .booking-list-item{padding:1.2rem 0;border-bottom:1px solid #74878c}
 .booking-page [hidden]{display:none!important}
+.booking-page .refund-request-form{display:grid;gap:1rem;max-width:34rem;margin:1rem 0}
+.booking-page .refund-request-form label{display:grid;gap:.35rem}
+.booking-page .refund-request-form :is(input,textarea){width:100%;box-sizing:border-box;padding:.7rem;border:1px solid #8997aa;border-radius:.6rem;font:inherit}
+.booking-page .refund-request-form button{justify-self:start}
+.booking-page .refund-unavailable{opacity:.6;cursor:not-allowed}
 @media(max-width:700px){.booking-page .booking-grid{grid-template-columns:1fr}.booking-page .booking-details{grid-template-columns:1fr}.booking-page .booking-details dd{margin-bottom:.6rem}}
