@@ -1,4 +1,5 @@
 package com.example.QuanLyChoThueXeDien.license;
+import com.example.QuanLyChoThueXeDien.Cloudinary.CloudinaryLicenseImages;
 import com.example.QuanLyChoThueXeDien.auth.entities.CustomerProfile;
 import com.example.QuanLyChoThueXeDien.auth.repositories.CustomerProfileRepository;
 import com.example.QuanLyChoThueXeDien.license.dtos.DrivingLicenseForm;
@@ -14,12 +15,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class DrivingLicenseServiceTests {
+    private static final String CLOUD_IMAGE = "cloudinary:8aa26275-4a03-45f0-bd8e-dce4c3579bf3.jpg";
+    private static final byte[] IMAGE_BYTES = {1, 2, 3};
+
     DrivingLicenseRepository licenses = mock(DrivingLicenseRepository.class);
     CustomerProfileRepository customers = mock(CustomerProfileRepository.class);
     LicenseVerifierRepository staff = mock(LicenseVerifierRepository.class);
     LicenseImageStorage images = mock(LicenseImageStorage.class);
+    CloudinaryLicenseImages cloudinary = mock(CloudinaryLicenseImages.class);
     com.example.QuanLyChoThueXeDien.auth.repositories.AccountRepository accounts = mock(com.example.QuanLyChoThueXeDien.auth.repositories.AccountRepository.class);
-    DrivingLicenseService service = new DrivingLicenseService(licenses, customers, staff, images, mock(EntityManager.class), accounts);
+    DrivingLicenseService service = new DrivingLicenseService(licenses, customers, staff, images, cloudinary,
+            mock(EntityManager.class), accounts);
     CustomerProfile customer = new CustomerProfile();
     DrivingLicense license = new DrivingLicense();
     DrivingLicenseForm form = new DrivingLicenseForm();
@@ -38,6 +44,8 @@ class DrivingLicenseServiceTests {
         when(staff.findByAccount_Email("staff")).thenReturn(Optional.of(new LicenseVerifier()));
         form.setLicenseNumber("123"); form.setLicenseClass("B");
         form.setIssueDate(LocalDate.of(2021,1,1)); form.setExpiryDate(LocalDate.of(2030,1,1));
+        when(cloudinary.newReference("old.jpg")).thenReturn(CLOUD_IMAGE);
+        when(images.read("old.jpg")).thenReturn(IMAGE_BYTES);
     }
     @Test void replacementResetsVerificationAndCleansImagesOnlyAfterCommit() {
         when(images.save(null)).thenReturn("new.jpg");
@@ -49,6 +57,7 @@ class DrivingLicenseServiceTests {
             verify(images, never()).delete(anyString());
             TransactionSynchronizationManager.getSynchronizations().getFirst().afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
             verify(images).delete("old.jpg");
+            verifyNoInteractions(cloudinary);
         } finally { TransactionSynchronizationManager.clearSynchronization(); }
     }
     @Test void rollbackRemovesNewImageAndKeepsOldImage() {
@@ -77,6 +86,7 @@ class DrivingLicenseServiceTests {
         license.setVerificationStatus(DrivingLicense.UNVERIFIED);
         assertThrows(IllegalArgumentException.class, () -> service.verify(1,"staff","stale.jpg",DrivingLicense.VERIFIED));
         assertEquals(DrivingLicense.UNVERIFIED, license.getVerificationStatus());
+        verifyNoInteractions(cloudinary);
     }
     @Test void expiredLicenseCannotBeApprovedButCanBeRejected() {
         license.setVerificationStatus(DrivingLicense.UNVERIFIED);
@@ -85,12 +95,56 @@ class DrivingLicenseServiceTests {
         service.verify(1,"staff","old.jpg",DrivingLicense.REJECTED);
         assertEquals(DrivingLicense.REJECTED, license.getVerificationStatus());
         assertNotNull(license.getVerifiedBy()); assertNotNull(license.getVerifiedAt());
+        verifyNoInteractions(cloudinary);
     }
-    @Test void approvalRecordsStaffAndTime() {
+    @Test void approvalRecordsStaffAndMovesImageToCloudinary() {
         license.setVerificationStatus(DrivingLicense.UNVERIFIED);
-        service.verify(1,"staff","old.jpg",DrivingLicense.VERIFIED);
-        assertEquals(DrivingLicense.VERIFIED, license.getVerificationStatus());
-        assertNotNull(license.getVerifiedAt()); assertNotNull(license.getVerifiedBy());
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.verify(1, "staff", "old.jpg", DrivingLicense.VERIFIED);
+            assertEquals(DrivingLicense.VERIFIED, license.getVerificationStatus());
+            assertNotNull(license.getVerifiedAt()); assertNotNull(license.getVerifiedBy());
+            assertEquals(CLOUD_IMAGE, license.getImagePath());
+            verify(cloudinary).upload(CLOUD_IMAGE, IMAGE_BYTES);
+            verify(images, never()).delete("old.jpg");
+
+            TransactionSynchronizationManager.getSynchronizations().getFirst().afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+            verify(images).delete("old.jpg");
+            when(cloudinary.read(CLOUD_IMAGE)).thenReturn(IMAGE_BYTES);
+            var image = service.ownImage("customer");
+            assertArrayEquals(IMAGE_BYTES, image.bytes());
+            assertEquals("image/jpeg", image.contentType());
+        } finally { TransactionSynchronizationManager.clearSynchronization(); }
+    }
+    @Test void failedCloudUploadPreservesUnverifiedLicenseAndLocalImage() {
+        license.setVerificationStatus(DrivingLicense.UNVERIFIED);
+        doThrow(new IllegalArgumentException("Cloudinary unavailable")).when(cloudinary).upload(CLOUD_IMAGE, IMAGE_BYTES);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            assertThrows(IllegalArgumentException.class,
+                    () -> service.verify(1, "staff", "old.jpg", DrivingLicense.VERIFIED));
+            assertEquals(DrivingLicense.UNVERIFIED, license.getVerificationStatus());
+            assertEquals("old.jpg", license.getImagePath());
+
+            TransactionSynchronizationManager.getSynchronizations().getFirst().afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(cloudinary).delete(CLOUD_IMAGE);
+            verify(images, never()).delete("old.jpg");
+        } finally { TransactionSynchronizationManager.clearSynchronization(); }
+    }
+    @Test void rejectingAnApprovedLicenseRestoresItsLocalImageAndRemovesTheCloudCopy() {
+        license.setImagePath(CLOUD_IMAGE);
+        when(cloudinary.read(CLOUD_IMAGE)).thenReturn(IMAGE_BYTES);
+        when(images.restore(IMAGE_BYTES, false)).thenReturn("restored.jpg");
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.verify(1, "staff", CLOUD_IMAGE, DrivingLicense.REJECTED);
+            assertEquals(DrivingLicense.REJECTED, license.getVerificationStatus());
+            assertEquals("restored.jpg", license.getImagePath());
+            verify(cloudinary, never()).delete(CLOUD_IMAGE);
+
+            TransactionSynchronizationManager.getSynchronizations().getFirst().afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+            verify(cloudinary).delete(CLOUD_IMAGE);
+        } finally { TransactionSynchronizationManager.clearSynchronization(); }
     }
     @Test void missingStaffProfileIsForbidden() {
         assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> service.list("unknown"));

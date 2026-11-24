@@ -1,4 +1,5 @@
 package com.example.QuanLyChoThueXeDien.license.services;
+import com.example.QuanLyChoThueXeDien.Cloudinary.CloudinaryLicenseImages;
 import com.example.QuanLyChoThueXeDien.auth.entities.CustomerProfile;
 import com.example.QuanLyChoThueXeDien.auth.repositories.CustomerProfileRepository;
 import com.example.QuanLyChoThueXeDien.license.dtos.DrivingLicenseForm;
@@ -22,6 +23,7 @@ public class DrivingLicenseService {
     private final CustomerProfileRepository customers;
     private final LicenseVerifierRepository verifiers;
     private final LicenseImageStorage images;
+    private final CloudinaryLicenseImages cloudinary;
     private final EntityManager entityManager;
     private final AccountRepository accounts;
 
@@ -30,12 +32,14 @@ public class DrivingLicenseService {
             , CustomerProfileRepository customers,
             LicenseVerifierRepository verifiers
             , LicenseImageStorage images
+            , CloudinaryLicenseImages cloudinary
             , EntityManager entityManager
     , AccountRepository accounts) {
         this.repository = repository;
         this.customers = customers;
         this.verifiers = verifiers;
         this.images = images;
+        this.cloudinary = cloudinary;
         this.entityManager = entityManager;
         this.accounts= accounts;
     }
@@ -62,7 +66,7 @@ public class DrivingLicenseService {
 
         DrivingLicense current = own(email);
 
-        if (current != null) entityManager.lock(current, LockModeType.PESSIMISTIC_WRITE);
+        if (current != null) entityManager.refresh(current, LockModeType.PESSIMISTIC_WRITE);
 
         String number = form.getLicenseNumber().trim();
         repository.findByLicenseNumber(number).filter(other ->
@@ -70,13 +74,7 @@ public class DrivingLicenseService {
             .ifPresent(other -> { throw new IllegalArgumentException("Số GPLX đã được khách hàng khác sử dụng."); });
         String image = images.save(form.getImage());
         String oldImage = current == null ? null : current.getImagePath();
-        // Keep old image on rollback; remove new image if the DB write fails.
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCompletion(int status) {
-                if (status == STATUS_COMMITTED) images.delete(oldImage);
-                else images.delete(image);
-            }
-        });
+        cleanUpAfterImageChange(oldImage, image);
         DrivingLicense license = current == null ? new DrivingLicense() : current;
         license.setCustomer(customer);
         license.setLicenseNumber(number);
@@ -119,7 +117,8 @@ public class DrivingLicenseService {
         Account reviewer = requireVerifier(staffEmail);
         DrivingLicense license = repository.findForUpdate(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (!Objects.equals(expectedImage, license.getImagePath()))
+        String currentImage = license.getImagePath();
+        if (!Objects.equals(expectedImage, currentImage))
             throw new IllegalArgumentException("GPLX đã được thay thế. Vui lòng tải lại và kiểm tra bản mới.");
         if (!DrivingLicense.VERIFIED.equals(decision) && !DrivingLicense.REJECTED.equals(decision))
             throw new IllegalArgumentException("Kết quả xác minh không hợp lệ.");
@@ -127,9 +126,22 @@ public class DrivingLicenseService {
         if (!DrivingLicense.UNVERIFIED.equals(license.getVerificationStatus())
                 && !(DrivingLicense.VERIFIED.equals(license.getVerificationStatus()) && DrivingLicense.REJECTED.equals(decision)))
             throw new IllegalArgumentException("Hồ sơ này đã được xử lý. Vui lòng tải lại trang.");
-        if (DrivingLicense.VERIFIED.equals(decision)
+        boolean approved = DrivingLicense.VERIFIED.equals(decision);
+        if (approved
                 && (!"B".equals(license.getLicenseClass()) || license.getExpiryDate().isBefore(today())))
             throw new IllegalArgumentException("GPLX không phải hạng B hoặc đã hết hạn; không thể duyệt.");
+        if (approved) {
+            String cloudImage = cloudinary.newReference(currentImage);
+            byte[] original = images.read(currentImage);
+            // Register cleanup before upload in case Cloudinary stores the image but the response is lost.
+            cleanUpAfterImageChange(currentImage, cloudImage);
+            cloudinary.upload(cloudImage, original);
+            license.setImagePath(cloudImage);
+        } else if (CloudinaryLicenseImages.isCloudReference(currentImage)) {
+            String localImage = images.restore(cloudinary.read(currentImage), currentImage.endsWith(".png"));
+            cleanUpAfterImageChange(currentImage, localImage);
+            license.setImagePath(localImage);
+        }
         license.setVerificationStatus(decision);
         license.setVerifiedBy(
                 "STAFF".equalsIgnoreCase(reviewer.getRole())
@@ -203,8 +215,24 @@ public class DrivingLicenseService {
 
 
     private ImageData image(DrivingLicense license) {
-        return new ImageData(images.read(license.getImagePath()),
-            license.getImagePath().endsWith(".png") ? "image/png" : "image/jpeg");
+        String reference = license.getImagePath();
+        byte[] data = CloudinaryLicenseImages.isCloudReference(reference)
+            ? cloudinary.read(reference) : images.read(reference);
+        return new ImageData(data, reference.endsWith(".png") ? "image/png" : "image/jpeg");
+    }
+
+    private void cleanUpAfterImageChange(String previous, String replacement) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCompletion(int status) {
+                if (status == STATUS_COMMITTED) deleteImage(previous);
+                else if (status == STATUS_ROLLED_BACK) deleteImage(replacement);
+            }
+        });
+    }
+
+    private void deleteImage(String reference) {
+        if (CloudinaryLicenseImages.isCloudReference(reference)) cloudinary.delete(reference);
+        else images.delete(reference);
     }
     private LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")); }
 

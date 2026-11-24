@@ -31,10 +31,7 @@ public class LicenseImageStorage {
                         throw new IllegalArgumentException("Ảnh có kích thước quá lớn; vui lòng chọn ảnh nhỏ hơn.");
                     if (reader.read(0) == null)
                         throw new IllegalArgumentException("Không đọc được ảnh GPLX.");
-                    String name = UUID.randomUUID() + (format.equalsIgnoreCase("png") ? ".png" : ".jpg");
-                    Files.createDirectories(root);
-                    Files.write(root.resolve(name), data, StandardOpenOption.CREATE_NEW);
-                    return name;
+                    return restore(data, format.equalsIgnoreCase("png"));
                 } finally
                 {
                     reader.dispose();
@@ -42,6 +39,18 @@ public class LicenseImageStorage {
             }
         } catch (IOException e) {
             throw new IllegalArgumentException("Không thể đọc hoặc lưu ảnh GPLX. Vui lòng thử lại.", e);
+        }
+    }
+
+
+    public String restore(byte[] data, boolean png) {
+        String name = UUID.randomUUID() + (png ? ".png" : ".jpg");
+        try {
+            Files.createDirectories(root);
+            Files.write(root.resolve(name), data, StandardOpenOption.CREATE_NEW);
+            return name;
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Không thể lưu ảnh GPLX. Vui lòng thử lại.", e);
         }
     }
 
