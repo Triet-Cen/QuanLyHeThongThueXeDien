@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 public class CloudinaryLicenseImages {
     private static final Logger logger = LoggerFactory.getLogger(CloudinaryLicenseImages.class);
     private static final String REFERENCE_PREFIX = "cloudinary:";
+    private static final String ASSET_FOLDER = "driving-licenses";
     private static final String DELIVERY_TYPE = "authenticated";
     private static final Pattern REFERENCE = Pattern.compile(REFERENCE_PREFIX + "[0-9a-f-]{36}\\.(jpg|png)");
     private static final String UPLOAD_ERROR = "Không thể lưu ảnh GPLX lên Cloudinary. Vui lòng thử lại.";
@@ -55,6 +56,8 @@ public class CloudinaryLicenseImages {
         this.client = builder.baseUrl("https://api.cloudinary.com/v1_1/" + (configured ? cloudName : "") + "/image").build();
     }
 
+
+
     private static RestClient.Builder restClientBuilder() {
         var requestFactory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5)).build());
@@ -77,6 +80,7 @@ public class CloudinaryLicenseImages {
         String publicId = publicId(reference);
         String format = format(reference);
         var form = sign(Map.of(
+                "asset_folder", ASSET_FOLDER,
                 "public_id", publicId,
                 "type", DELIVERY_TYPE,
                 "backup", "false",
@@ -93,6 +97,9 @@ public class CloudinaryLicenseImages {
             }
         } catch (RestClientException e) {
             logFailure("tải ảnh lên", e);
+            if (e instanceof RestClientResponseException response && response.getStatusCode().value() == 403) {
+                throw new IllegalArgumentException("Cloudinary từ chối tải ảnh GPLX (HTTP 403). Vui lòng kiểm tra quyền tải ảnh của API key.");
+            }
             throw new IllegalArgumentException(UPLOAD_ERROR);
         }
     }
@@ -170,7 +177,7 @@ public class CloudinaryLicenseImages {
         if (!isCloudReference(reference)) {
             throw new IllegalArgumentException("Mã ảnh Cloudinary không hợp lệ.");
         }
-        return "driving-licenses/" + reference.substring(REFERENCE_PREFIX.length(), reference.lastIndexOf('.'));
+        return ASSET_FOLDER + "/" + reference.substring(REFERENCE_PREFIX.length(), reference.lastIndexOf('.'));
     }
 
     private String format(String reference) {
