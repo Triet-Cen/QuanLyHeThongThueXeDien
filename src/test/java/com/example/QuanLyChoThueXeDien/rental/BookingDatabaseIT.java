@@ -271,7 +271,7 @@ class BookingDatabaseIT {
                 assertEquals(List.of(0,0),race(()->Integer.valueOf(payments.handleIpn(firstIpn)),()->Integer.valueOf(payments.handleIpn(secondIpn))));
                 assertEquals(Set.of("SUCCESS","NEEDS_RECONCILIATION"),Set.of(payments.getPaymentResult(fixture.a(),ref).status(),payments.getPaymentResult(fixture.b(),secondRef).status()));
                 assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM giao_dich_thanh_toan WHERE MaDonThue IN (?,?) AND TrangThaiGD='SUCCESS'",Integer.class,rentalId,second));
-                assertEquals(1,payments.listPaymentsForReview().size());
+                assertEquals(1,db.queryForObject("SELECT COUNT(*) FROM giao_dich_thanh_toan WHERE MaDonThue IN (?,?) AND TrangThaiGD='NEEDS_RECONCILIATION'",Integer.class,rentalId,second));
             } finally {db.update("DELETE FROM giao_dich_thanh_toan WHERE MaDonThue=?",second);}
         }
         @Test void ar17_18_19_28_30_cancelPaidBookingConcurrently() throws Exception {

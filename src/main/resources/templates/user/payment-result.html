@@ -14,7 +14,7 @@
         <div role="status" th:switch="${result.status}">
             <p th:case="'SUCCESS'">Đã xác nhận thanh toán.</p>
             <p th:case="'FAILED'">Lần thanh toán thất bại. Bạn có thể mở đơn để kiểm tra và thử lại nếu còn hạn.</p>
-            <p th:case="'NEEDS_RECONCILIATION'">Giao dịch đang được đối soát.</p>
+            <p th:case="'NEEDS_RECONCILIATION'">Giao dịch cần được kiểm tra. Vui lòng liên hệ cửa hàng.</p>
             <p th:case="*">Đang chờ VNPay xác nhận thanh toán.</p>
         </div>
         <p th:text="|Đơn #${result.rental} · ${result.rentalStatus}|"></p>

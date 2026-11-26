@@ -39,5 +39,4 @@
 <label>Tham chiếu chứng từ <input name="evidence" maxlength="500" required></label></div>
 <input type="hidden" name="confirm" th:value="${h.TrangThaiHoanTien=='PROCESSING'}">
 <button class="admin-button light" th:text="${(h.TrangThaiHoanTien=='PENDING'?'Tiếp nhận hồ sơ hoàn #':'Ghi nhận đã hoàn thủ công #') + h.MaHoanTien}"></button></form></div>
-<a th:href="@{/admin/payments/reconciliation}">Xử lý đối soát VNPay</a>
 </section></body></html>

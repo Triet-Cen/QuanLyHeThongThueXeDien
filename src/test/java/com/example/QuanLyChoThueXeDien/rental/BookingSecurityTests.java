@@ -8,6 +8,7 @@ import com.example.QuanLyChoThueXeDien.payment.services.PaymentService;
 import com.example.QuanLyChoThueXeDien.auth.services.CustomUserDetailsService;
 import com.example.QuanLyChoThueXeDien.config.SecurityConfig;
 import com.example.QuanLyChoThueXeDien.rental.controllers.*;
+import com.example.QuanLyChoThueXeDien.rental.repositories.AdminRentalRepository;
 import com.example.QuanLyChoThueXeDien.session.BookingSession;
 import com.example.QuanLyChoThueXeDien.rental.dtos.*;
 import com.example.QuanLyChoThueXeDien.rental.services.*;
@@ -42,12 +43,13 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 @ContextConfiguration(classes = BookingSecurityTests.Config.class)
 class BookingSecurityTests {
     @Configuration @EnableWebSecurity @EnableWebMvc
-    @Import({SecurityConfig.class, BookingController.class, RentalClock.class, PaymentController.class, VehicleSearchController.class})
+    @Import({SecurityConfig.class, BookingController.class, RentalClock.class, PaymentController.class, VehicleSearchController.class, AdminRentalController.class})
     static class Config {
         @Bean CustomUserDetailsService users() { return mock(CustomUserDetailsService.class); }
         @Bean RentalRefundService refunds() { return mock(RentalRefundService.class); }
         @Bean BookingService bookings() { return mock(BookingService.class); }
         @Bean PaymentService payments() { return mock(PaymentService.class); }
+        @Bean AdminRentalRepository adminRentals() { return mock(AdminRentalRepository.class); }
         @Bean VehicleSearchService search() { return mock(VehicleSearchService.class); }
         @Bean org.thymeleaf.spring6.view.ThymeleafViewResolver views() {
             var resolver = new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
@@ -61,9 +63,10 @@ class BookingSecurityTests {
     @Autowired BookingService service;
     @Autowired RentalRefundService refunds;
     @Autowired PaymentService payments;
+    @Autowired AdminRentalRepository adminRentals;
     @Autowired VehicleSearchService search;
     MockMvc mvc;
-    @BeforeEach void setup() { reset(service, payments); mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
+    @BeforeEach void setup() { reset(service, payments, adminRentals); mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
 
     @Test void anonymousMustLoginBeforeConfirmation() throws Exception {
         mvc.perform(get("/bookings/confirm")).andExpect(status().is3xxRedirection()); verifyNoInteractions(service);
@@ -201,12 +204,29 @@ class BookingSecurityTests {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("Về chi tiết đơn thuê")));
     }
 
-    @Test void reconciliationViewAndNotesAreAdminOnly() throws Exception {
-        mvc.perform(get("/admin/payments/reconciliation").with(user("a").roles("CUSTOMER"))).andExpect(status().isForbidden());
-        when(payments.listPaymentsForReview()).thenReturn(java.util.List.of(java.util.Map.of("event_id",1,"ref","REF","disposition","REVIEW_AMOUNT",
-            "rental",8,"provider_id","123","expected",10,"received_amount",20,"currency","VND","received_at","08:00","resolution","")));
-        mvc.perform(get("/admin/payments/reconciliation").with(user("a").roles("ADMIN"))).andExpect(status().isOk())
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("/reconciliation/1/notes")));
+    @Test void removedReconciliationPageAndNotesReturn404() throws Exception {
+        mvc.perform(get("/admin/payments/reconciliation").with(user("a").roles("ADMIN")))
+            .andExpect(status().isNotFound());
+        mvc.perform(post("/admin/payments/reconciliation/1/notes").with(user("a").roles("ADMIN")).with(csrf()).param("note","test"))
+            .andExpect(status().isNotFound());
+        verifyNoInteractions(payments);
+    }
+
+    @Test void adminRentalListHasNoReconciliationNavigationOrFilter() throws Exception {
+        when(adminRentals.search(anyString(),any(),anyString(),anyString(),any(),any(),anyString(),anyInt(),anyInt(),any()))
+            .thenReturn(new AdminRentalRepository.Results(java.util.List.of(),0));
+        mvc.perform(get("/admin/rentals").with(user("a").roles("ADMIN")))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/admin/payments/reconciliation"))))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("value=\"review\""))));
+    }
+
+    @Test void paymentNeedingReviewStillTellsCustomerToContactStore() throws Exception {
+        when(payments.handleReturn(eq("a"),eq("ref"),anyMap()))
+            .thenReturn(new PaymentResult(8,"ref","NEEDS_RECONCILIATION","CANCELLED",BigDecimal.TEN));
+        mvc.perform(get("/payments/vnpay/return?vnp_TxnRef=ref").with(user("a").roles("CUSTOMER")))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Vui lòng liên hệ cửa hàng")));
     }
     private BookingForm selection() {
         BookingForm f = new BookingForm(); f.setStationId(1); f.setVehicleId(1);

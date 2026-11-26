@@ -210,11 +210,4 @@ public class PaymentService {
         return new PaymentResult(a.rental(),a.ref(),a.status(),rental.getStatus(),a.amount());
     }
 
-    @Transactional(readOnly = true)
-    public List<Map<String,Object>> listPaymentsForReview() { return payments.findPaymentsForReview(); }
-
-    public void saveReviewNote(long event, String email, String note) {
-        if (note.isBlank() || note.length() > 900) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        if (!payments.addReviewNote(event,email,note.strip(),clock.now())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-    }
 }

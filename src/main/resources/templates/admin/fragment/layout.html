@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title th:text="${pageTitle + ' - E-Vehicle Admin'}">E-Vehicle Admin</title>
     <link rel="stylesheet" th:href="@{/css/admin.css}">
-    <link th:if="${activePage == 'rentals' or activePage == 'reconciliation'}" rel="stylesheet" th:href="@{/css/admin-rentals.css}">
+    <link th:if="${activePage == 'rentals'}" rel="stylesheet" th:href="@{/css/admin-rentals.css}">
 </head>
 
 <body class="admin-body">
@@ -38,7 +38,6 @@
                     Dashboard
                 </a>
                 <a class="admin-nav-link" th:classappend="${activePage == 'rentals' ? 'active' : ''}" th:href="@{/admin/rentals}">Đơn thuê xe</a>
-                <a class="admin-nav-link" th:classappend="${activePage == 'reconciliation' ? 'active' : ''}" th:href="@{/admin/payments/reconciliation}">Đối soát VNPay</a>
             </details>
 
             <details class="admin-nav-section"

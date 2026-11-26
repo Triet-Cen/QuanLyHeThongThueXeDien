@@ -124,30 +124,4 @@ public class PaymentRepository {
             """,message,now,a.rental());
     }
 
-    public List<Map<String,Object>> findPaymentsForReview() {
-        return db.queryForList("""
-            SELECT g.MaGD AS event_id,g.MaGD AS ref,g.MaDonThue AS rental,g.SoTien AS expected,
-              g.MaGiaoDichVNPAYhoacSEPay AS provider_id,g.ThoiGianGiaoDich AS received_at,
-              (SELECT h.GhiChu FROM lich_su_trang_thai_don h WHERE h.MaDonThue=g.MaDonThue
-                AND h.GhiChu LIKE CONCAT('VNPAY REVIEW #',g.MaGD,' %') ORDER BY h.MaLichSu DESC LIMIT 1) AS disposition,
-              (SELECT h.GhiChu FROM lich_su_trang_thai_don h WHERE h.MaDonThue=g.MaDonThue
-                AND h.GhiChu LIKE CONCAT('VNPAY NOTE #',g.MaGD,' %') ORDER BY h.MaLichSu DESC LIMIT 1) AS resolution
-            FROM giao_dich_thanh_toan g WHERE g.TrangThaiGD IN ('NEEDS_RECONCILIATION','CẦN ĐỐI SOÁT')
-              OR EXISTS(SELECT 1 FROM lich_su_trang_thai_don h WHERE h.MaDonThue=g.MaDonThue
-                AND h.GhiChu LIKE CONCAT('VNPAY REVIEW #',g.MaGD,' %'))
-            ORDER BY g.MaGD DESC LIMIT 200
-            """);
-    }
-
-    public boolean addReviewNote(long event, String email, String note, LocalDateTime now) {
-        return db.update("""
-            INSERT INTO lich_su_trang_thai_don(MaDonThue,TrangThaiCu,TrangThaiMoi,ThoiGianThayDoi,MaTKThucHien,GhiChu)
-            SELECT d.MaDonThue,d.TrangThaiDon,d.TrangThaiDon,?,t.MaTK,?
-            FROM giao_dich_thanh_toan g JOIN don_thue_xe d ON d.MaDonThue=g.MaDonThue
-              JOIN tai_khoan t ON t.Email=? AND t.VaiTro='ADMIN' AND t.TrangThai='ACTIVE'
-            WHERE g.MaGD=? AND (g.TrangThaiGD IN ('NEEDS_RECONCILIATION','CẦN ĐỐI SOÁT') OR EXISTS (
-              SELECT 1 FROM lich_su_trang_thai_don h WHERE h.MaDonThue=d.MaDonThue
-                AND h.GhiChu LIKE CONCAT('VNPAY REVIEW #',g.MaGD,' %')))
-            """,now,"VNPAY NOTE #"+event+" "+note,email,event) == 1;
-    }
 }

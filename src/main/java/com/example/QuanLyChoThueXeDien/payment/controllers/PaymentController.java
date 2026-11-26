@@ -83,15 +83,4 @@ public class PaymentController {
         return "user/payment-result";
     }
 
-    @GetMapping("/admin/payments/reconciliation")
-    public String showPaymentsForReview(Model model) {
-        model.addAttribute("events",payments.listPaymentsForReview());
-        return "admin/payment-reconciliation";
-    }
-
-    @PostMapping("/admin/payments/reconciliation/{event}/notes")
-    public String saveReviewNote(@PathVariable long event, @RequestParam String note, Principal user) {
-        payments.saveReviewNote(event,user.getName(),note);
-        return "redirect:/admin/payments/reconciliation";
-    }
 }

@@ -32,8 +32,7 @@ public class AdminRentalRepository {
         "dispatch", INCIDENT,
         "fees","EXISTS (SELECT 1 FROM phi_phat_sinh f WHERE f.MaDonThue=d.MaDonThue AND f.TrangThaiThanhToan IN ('UNPAID','CHƯA THANH TOÁN'))",
         "newRefund","EXISTS (SELECT 1 FROM hoan_tien h WHERE h.MaDonThue=d.MaDonThue AND h.LyDoHoan='BR39' AND h.TrangThaiHoanTien='PENDING')",
-        "refund","EXISTS (SELECT 1 FROM hoan_tien h WHERE h.MaDonThue=d.MaDonThue AND h.NgayHoanTat IS NULL AND h.TrangThaiHoanTien IN ('PENDING','PROCESSING','Chờ xử lý','Đang xử lý'))",
-        "review","EXISTS (SELECT 1 FROM giao_dich_thanh_toan g WHERE g.MaDonThue=d.MaDonThue AND g.TrangThaiGD IN ('NEEDS_RECONCILIATION','CẦN ĐỐI SOÁT'))");
+        "refund","EXISTS (SELECT 1 FROM hoan_tien h WHERE h.MaDonThue=d.MaDonThue AND h.NgayHoanTat IS NULL AND h.TrangThaiHoanTien IN ('PENDING','PROCESSING','Chờ xử lý','Đang xử lý'))");
 
 
     public void requireAdmin(String email) {
@@ -97,7 +96,6 @@ public class AdminRentalRepository {
             FROM don_thue_xe d WHERE d.MaDonThue=:id
             """);
         queries.put("Giao dịch","SELECT MaGD,LoaiThanhToan,MaGiaoDichVNPAYhoacSEPay,SoTien,TrangThaiGD,ThoiGianGiaoDich FROM giao_dich_thanh_toan WHERE MaDonThue=:id ORDER BY MaGD DESC");
-        queries.put("Đối soát","SELECT ThoiGianThayDoi,GhiChu,MaTKThucHien FROM lich_su_trang_thai_don WHERE MaDonThue=:id AND GhiChu LIKE 'VNPAY %' ORDER BY MaLichSu DESC");
         queries.put("Phí phát sinh","SELECT * FROM phi_phat_sinh WHERE MaDonThue=:id");
         queries.put("Hoàn tiền","SELECT * FROM hoan_tien WHERE MaDonThue=:id");
         queries.put("Biên bản giao","SELECT * FROM bien_ban_giao_xe WHERE MaDonThue=:id");
