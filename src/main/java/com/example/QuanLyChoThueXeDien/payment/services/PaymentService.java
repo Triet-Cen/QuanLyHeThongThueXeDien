@@ -78,8 +78,6 @@ public class PaymentService {
 
     public String startPayment(String email, int id, boolean fees, String accepted, String ip) {
         // A fresh submission has its own MaGD; callbacks serialize against cancel/timeout.
-        bookings.readOwned(email,id);
-        bookings.lockForPaymentNotification(id);
         PaymentInvoice invoice = getInvoice(email,id,fees);
         if (!invoice.key().equals(accepted)) throw new IllegalArgumentException("Hóa đơn đã thay đổi. Vui lòng xem lại.");
         if (invoice.amount().signum() <= 0) throw new IllegalArgumentException("Không có khoản tiền cần thanh toán.");

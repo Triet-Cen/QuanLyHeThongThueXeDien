@@ -24,14 +24,12 @@ public class PaymentRepository {
                     SELECT 1 FROM lich_su_trang_thai_don h WHERE h.MaDonThue=g.MaDonThue
                     AND h.GhiChu=CONCAT('VNPAY LEGACY #',g.MaGD,' ref=',?))
                 """,(r,i)->new PaymentAttempt(r.getInt("MaGD"),r.getInt("MaDonThue"),r.getString("LoaiThanhToan"),
-                    ref,"","VND","",r.getBigDecimal("SoTien"),r.getString("TrangThaiGD"),
-                    r.getObject("ThoiGianGiaoDich",LocalDateTime.class),LocalDateTime.MIN),ref).stream().findFirst();
+                    ref,"",r.getBigDecimal("SoTien"),r.getString("TrangThaiGD"),LocalDateTime.MIN),ref).stream().findFirst();
         }
         var t = token.get();
         return db.query("SELECT * FROM giao_dich_thanh_toan WHERE MaGD=?", (r,i) ->
             new PaymentAttempt(r.getInt("MaGD"),r.getInt("MaDonThue"),r.getString("LoaiThanhToan"),
-                ref,"","VND",t.invoice(),r.getBigDecimal("SoTien"),r.getString("TrangThaiGD"),
-                r.getObject("ThoiGianGiaoDich",LocalDateTime.class),t.expires()),t.id()).stream().findFirst();
+                ref,t.invoice(),r.getBigDecimal("SoTien"),r.getString("TrangThaiGD"),t.expires()),t.id()).stream().findFirst();
     }
 
     public int saveAttempt(int rental, String kind, BigDecimal amount, LocalDateTime now) {

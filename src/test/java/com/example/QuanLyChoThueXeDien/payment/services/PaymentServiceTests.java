@@ -56,7 +56,7 @@ class PaymentServiceTests {
         }
         String invoice = service.getInvoice("owner",1,fees).key();
         ref = new PaymentReference(3,expiry,invoice).encode();
-        var a = new PaymentAttempt(3,1,kind,ref,"","VND",invoice,amount,status,now,expiry);
+        var a = new PaymentAttempt(3,1,kind,ref,invoice,amount,status,expiry);
         when(db.findAttemptByRef(ref)).thenReturn(Optional.of(a));
         return a;
     }
@@ -77,12 +77,22 @@ class PaymentServiceTests {
 
     @Test void startCreatesAnAttemptAndUsesGeneratedIdInSignedGatewayUrl() {
         String key = service.getInvoice("owner",1,false).key();
+        clearInvocations(bookings);
         when(db.saveAttempt(1,"RENTAL",new BigDecimal("10000"),now)).thenReturn(3);
         String expected = new PaymentReference(3,expiry,key).encode();
         when(gateway.buildPaymentUrl(expected,new BigDecimal("10000"),now,expiry,"::1")).thenReturn("https://gateway.invalid/pay");
         assertEquals("https://gateway.invalid/pay",service.startPayment("owner",1,false,key,"::1"));
-        verify(bookings).readOwned("owner",1); verify(bookings).lockForPaymentNotification(1);
+        verify(bookings).view("owner",1);
+        verifyNoMoreInteractions(bookings);
         assertTrue(rental.isPending()); verify(em,never()).persist(any());
+    }
+
+    @Test void startRejectsAnotherOwnerBeforeCreatingPayment() {
+        when(bookings.view("other",1)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+        var failure = assertThrows(ResponseStatusException.class,
+            ()->service.startPayment("other",1,false,"invoice","::1"));
+        assertEquals(HttpStatus.NOT_FOUND,failure.getStatusCode());
+        verifyNoInteractions(db,gateway,em);
     }
 
     @Test void changedInvoiceAndZeroAmountCannotStart() {
@@ -91,6 +101,17 @@ class PaymentServiceTests {
         String key=service.getInvoice("owner",1,false).key();
         assertThrows(IllegalArgumentException.class,()->service.startPayment("owner",1,false,key,"::1"));
         verify(db,never()).saveAttempt(anyInt(),anyString(),any(),any());
+    }
+
+    @Test void expiredOrPaidRentalCannotStart() {
+        String key = service.getInvoice("owner",1,false).key();
+        rental.setHoldExpiresAt(now);
+        assertThrows(IllegalArgumentException.class,()->service.startPayment("owner",1,false,key,"::1"));
+        rental.setHoldExpiresAt(expiry);
+        when(db.isRentalPaid(1)).thenReturn(true);
+        assertThrows(IllegalArgumentException.class,()->service.startPayment("owner",1,false,key,"::1"));
+        verify(db,never()).saveAttempt(anyInt(),anyString(),any(),any());
+        verifyNoInteractions(gateway);
     }
 
     @Test void invalidSignatureDoesNotAccessDatabase() {
@@ -123,7 +144,7 @@ class PaymentServiceTests {
         when(db.hasRentedOrder(2)).thenReturn(true);
         assertEquals("00",service.handleIpn(payload));
         assertEquals("BOOKED",rental.getStatus());assertEquals("Rented",vehicle.getVehicleStatus());
-        var paid=new PaymentAttempt(a.id(),a.rental(),a.kind(),a.ref(),"","VND",a.invoice(),a.amount(),"SUCCESS",now,expiry);
+        var paid=new PaymentAttempt(a.id(),a.rental(),a.kind(),a.ref(),a.invoice(),a.amount(),"SUCCESS",expiry);
         when(db.findAttemptByRef(ref)).thenReturn(Optional.of(paid));when(db.hasSameReceipt(3,"123")).thenReturn(true);
         assertEquals("02",service.handleIpn(payload));assertEquals(0,coupon.getRemainingQuantity());
         verify(db).updateAttemptStatus(a,e,"SUCCESS",now);verify(db).sendPaymentNotifications(7,a,now);
@@ -180,7 +201,7 @@ class PaymentServiceTests {
     }
 
     @Test void migratedPendingReferenceIsReviewedRatherThanGuessingItsInvoice() {
-        ref="a".repeat(32);var a=new PaymentAttempt(3,1,"RENTAL",ref,"","VND","",amount,"PENDING",now,LocalDateTime.MIN);
+        ref="a".repeat(32);var a=new PaymentAttempt(3,1,"RENTAL",ref,"",amount,"PENDING",LocalDateTime.MIN);
         when(db.findAttemptByRef(ref)).thenReturn(Optional.of(a));var e=event(amount,"00");
         assertEquals("00",service.handleIpn(payload));verify(db).recordReview(a,e,"REVIEW_LEGACY_ATTEMPT",now);
         assertTrue(rental.isPending());
