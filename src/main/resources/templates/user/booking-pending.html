@@ -31,7 +31,6 @@
             <form th:if="${invoice.amount.signum() > 0}" th:action="@{/bookings/{id}/vnpay(id=${rental.rentalId})}" method="post" data-booking-submit>
                 <input type="hidden" name="fees" value="false">
                 <input type="hidden" name="invoiceKey" th:value="${invoice.key}">
-                <input type="hidden" name="requestKey" th:value="${requestKey}">
                 <button class="btn-gold" type="submit">Thanh toán qua VNPay</button>
             </form>
             <a class="btn-ghost" th:href="@{/bookings/{id}/invoice(id=${rental.rentalId})}">Xem hóa đơn tiền thuê</a>

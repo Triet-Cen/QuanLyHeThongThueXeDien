@@ -20,6 +20,6 @@
 <p><strong th:text="|Tổng cần trả: ${#numbers.formatDecimal(invoice.amount,1,'POINT',0,'COMMA')} đ|"></strong></p>
 <form th:if="${invoice.amount.signum() > 0}" th:action="@{/bookings/{id}/vnpay(id=${r.rentalId})}" method="post" data-booking-submit>
 <input type="hidden" name="fees" th:value="${invoice.fees}"><input type="hidden" name="invoiceKey" th:value="${invoice.key}">
-<input type="hidden" name="requestKey" th:value="${requestKey}"><button type="submit">Thanh toán qua VNPay</button></form>
+<button type="submit">Thanh toán qua VNPay</button></form>
 <p th:if="${!invoice.fees and invoice.amount.signum() == 0}">Đơn 0 đồng đang chờ chính sách xác nhận miễn phí.</p>
 <a th:href="@{/bookings/{id}(id=${r.rentalId})}">Về chi tiết đơn</a></section></main><script defer th:src="@{/js/booking.js}"></script></body></html>

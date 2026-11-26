@@ -4,6 +4,7 @@ import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentInvoice;
 import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentResult;
 import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentFee;
 import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentAttempt;
+import com.example.QuanLyChoThueXeDien.payment.dtos.PaymentReference;
 import com.example.QuanLyChoThueXeDien.payment.dtos.VnPayEvent;
 import com.example.QuanLyChoThueXeDien.payment.repositories.PaymentRepository;
 import com.example.QuanLyChoThueXeDien.rental.entities.*;
@@ -75,28 +76,20 @@ public class PaymentService {
         } catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
 
-    public String startPayment(String email, int id, boolean fees, String accepted, UUID request, String ip) {
+    public String startPayment(String email, int id, boolean fees, String accepted, String ip) {
+        // A fresh submission has its own MaGD; callbacks serialize against cancel/timeout.
+        bookings.readOwned(email,id);
+        bookings.lockForPaymentNotification(id);
         PaymentInvoice invoice = getInvoice(email,id,fees);
         if (!invoice.key().equals(accepted)) throw new IllegalArgumentException("Hóa đơn đã thay đổi. Vui lòng xem lại.");
-        if (invoice.amount().signum() <= 0) throw new IllegalArgumentException(fees ?
-            "Không có phí cần thanh toán." : "Đơn 0 đồng cần chính sách xác nhận miễn phí (XN09).");
-        LocalDateTime now = clock.now();
-        var previous = payments.findAttemptByRequest(id,request);
-        if (previous.isPresent()) {
-            PaymentAttempt a = previous.get();
-            if (!accepted.equals(a.invoice()) || !"PENDING".equals(a.status()) || !now.isBefore(a.expires())
-                || !gateway.merchant().equals(a.merchant())) throw new IllegalArgumentException("Vui lòng mở lại hóa đơn để thử lại.");
-            return gateway.buildPaymentUrl(a.ref(),a.amount(),a.created(),a.expires(),ip);
-        }
-        String ref = UUID.randomUUID().toString().replace("-","");
-        var expires = fees ? gateway.getFeePaymentDeadline(now) : invoice.rental().getHoldExpiresAt();
+        if (invoice.amount().signum() <= 0) throw new IllegalArgumentException("Không có khoản tiền cần thanh toán.");
+        LocalDateTime now = clock.now().withNano(0);
+        var expires = (fees ? gateway.getFeePaymentDeadline(now) : invoice.rental().getHoldExpiresAt()).withNano(0);
         if (!now.isBefore(expires)) throw new IllegalArgumentException("Đã hết thời hạn thanh toán.");
-        String url = gateway.buildPaymentUrl(ref,invoice.amount(),now,expires,ip);
-        payments.saveAttempt(id,fees ? "EXTRA_FEE" : "RENTAL",ref,gateway.merchant(),request,accepted,invoice.amount(),now,
-            expires,invoice.lines().stream().filter(PaymentFee::unpaid).toList());
-        return url;
+        int transaction = payments.saveAttempt(id,fees ? "EXTRA_FEE" : "RENTAL",invoice.amount(),now);
+        String ref = new PaymentReference(transaction,expires,accepted).encode();
+        return gateway.buildPaymentUrl(ref,invoice.amount(),now,expires,ip);
     }
-
     public String handleIpn(Map<String,String[]> payload) {
         var verified = gateway.verifyIpn(payload);
         if (verified.isEmpty()) {
@@ -119,48 +112,44 @@ public class PaymentService {
     }
 
     private String processNotification(VnPayEvent event) {
+        if (!gateway.merchant().equals(event.merchant())) return "97";
         var lookup = payments.findAttemptByRef(event.ref());
-        Rental rental = lookup.isEmpty() ? null : bookings.lockForPaymentNotification(lookup.get().rental());
-        // Read again after acquiring the same locks as timeout/cancel.
-        PaymentAttempt a = rental == null ? null : payments.findAttemptByRef(event.ref()).orElseThrow();
-        String previous = payments.recordIpn(event,clock.now());
-        if (!"RECEIVED".equals(previous)) return getIpnResponseCode(previous);
+        if (lookup.isEmpty()) {
+            log.warn("Verified VNPay notification has unknown reference: {}",event.ref());
+            return "01";
+        }
+        Rental rental = bookings.lockForPaymentNotification(lookup.get().rental());
+        payments.lockReceiptProcessing();
+        PaymentAttempt a = payments.findAttemptByRef(event.ref()).orElseThrow();
+        if (a.amount().compareTo(event.amount()) != 0 || !"VND".equals(event.currency())) {
+            review(a,event,"REVIEW_AMOUNT"); return "04";
+        }
+        if ("SUCCESS".equals(a.status()) || "THÀNH CÔNG".equals(a.status())) {
+            if (!event.successful()) return "02";
+            if (payments.hasSameReceipt(a.id(),event.providerId())) return "02";
+            review(a,event,"REVIEW_SECOND_RECEIPT"); return "00";
+        }
+        if ("NEEDS_RECONCILIATION".equals(a.status()) && payments.hasSameReceipt(a.id(),event.providerId())) return "00";
         String reason;
-        if (!gateway.merchant().equals(event.merchant()) || a != null && !a.merchant().equals(event.merchant()))
-            reason = "REVIEW_MERCHANT";
-        else if (event.successful() && !payments.claimReceipt(event).equals(event.signature()))
-            reason = payments.isSamePaidReceipt(event) ? "DUPLICATE" : "REVIEW_PROVIDER_ID";
-        else if (a == null) reason = "REVIEW_UNKNOWN_REF";
-        else if (a.amount().compareTo(event.amount()) != 0 || !a.currency().equals(event.currency()))
-            reason = "REVIEW_AMOUNT";
-        else if (event.successful() && payments.hasLegacyReceipt(event.providerId())) reason = "REVIEW_PROVIDER_ID";
-        else if ("01".equals(event.status())) reason = "PROVIDER_PENDING";
+        if (event.successful() && payments.hasOtherReceipt(a.id(),event.providerId())) reason = "REVIEW_PROVIDER_ID";
+        else if (event.successful() && PaymentReference.parse(a.ref()).isEmpty()) reason = "REVIEW_LEGACY_ATTEMPT";
+        else if ("01".equals(event.status())) return "00";
         else if (Set.of("04","05","06","07","09").contains(event.status()) ||
-            "00".equals(event.response()) != "00".equals(event.status()))
-            reason = "REVIEW_PROVIDER_STATUS";
+            "00".equals(event.response()) != "00".equals(event.status())) reason = "REVIEW_PROVIDER_STATUS";
         else if (!event.successful()) {
             if ("PENDING".equals(a.status())) payments.updateAttemptStatus(a,event,"FAILED",clock.now());
-            reason = "PROVIDER_FAILURE";
-        } else {
-            reason = applyPayment(rental,a,event);
-        }
-        if (reason.startsWith("REVIEW") && !"REVIEW_MERCHANT".equals(reason) && a != null &&
-            (event.successful() || "REVIEW_PROVIDER_STATUS".equals(reason)))
+            return "00";
+        } else reason = applyPayment(rental,a,event);
+        if (reason.startsWith("REVIEW")) review(a,event,reason);
+        return "00";
+    }
+
+    private void review(PaymentAttempt a, VnPayEvent event, String reason) {
+        // Retain the first receipt under review; additional receipts stay in the existing order history.
+        if (!Set.of("SUCCESS","THÀNH CÔNG","NEEDS_RECONCILIATION","CẦN ĐỐI SOÁT").contains(a.status()))
             payments.updateAttemptStatus(a,event,"NEEDS_RECONCILIATION",clock.now());
-        payments.saveIpnResult(event,reason);
-        return getIpnResponseCode(reason);
+        payments.recordReview(a,event,reason,clock.now());
     }
-
-    static String getIpnResponseCode(String reason) {
-        return switch (reason) {
-            case "REVIEW_MERCHANT" -> "97";
-            case "REVIEW_UNKNOWN_REF" -> "01";
-            case "REVIEW_AMOUNT" -> "04";
-            case "DUPLICATE" -> "02";
-            default -> "00";
-        };
-    }
-
     private String applyPayment(Rental r, PaymentAttempt a, VnPayEvent event) {
         if ("SUCCESS".equals(a.status())) return "REVIEW_SECOND_RECEIPT";
         if ("RENTAL".equals(a.kind())) {
@@ -169,9 +158,10 @@ public class PaymentService {
         } else if ("EXTRA_FEE".equals(a.kind())) {
             if (!"RENTED".equalsIgnoreCase(r.getStatus()) || !payments.hasReturnReport(a.rental())) return "REVIEW_RETURN";
             var current = payments.findRentalFees(a.rental());
-            var selected = payments.findAttemptFees(a.ref());
-            if (!feesMatchInvoice(selected,current,a.amount()) || selected.stream().anyMatch(f -> payments.isFeeAllocated(f.id())))
-                return "REVIEW_FEE_CHANGED";
+            var selected = current.stream().filter(PaymentFee::unpaid).toList();
+            BigDecimal total = selected.stream().map(PaymentFee::amount).reduce(BigDecimal.ZERO,BigDecimal::add).setScale(0,RoundingMode.HALF_UP);
+            if (selected.isEmpty() || total.compareTo(a.amount()) != 0 ||
+                !a.invoice().equals(buildInvoiceKey(a.rental(),true,total,current))) return "REVIEW_FEE_CHANGED";
             if (!clock.now().isBefore(a.expires())) return "REVIEW_EXPIRED_ATTEMPT";
             for (PaymentFee fee : selected) payments.markFeePaid(a,fee);
         } else return "REVIEW_KIND";
@@ -181,22 +171,9 @@ public class PaymentService {
         return "ALLOCATED";
     }
 
-    static boolean feesMatchInvoice(List<PaymentFee> selected, List<PaymentFee> current, BigDecimal expected) {
-        var remaining = new HashMap<Integer,PaymentFee>();
-        for (PaymentFee f : current) if (f.unpaid()) remaining.put(f.id(),f);
-        BigDecimal sum = BigDecimal.ZERO;
-        for (PaymentFee f : selected) {
-            PaymentFee live = remaining.remove(f.id());
-            if (live == null || live.amount().compareTo(f.amount()) != 0 ||
-                !live.type().equals(f.type()) || !live.reason().equals(f.reason())) return false;
-            sum = sum.add(f.amount());
-        }
-        return !selected.isEmpty() && sum.setScale(0,RoundingMode.HALF_UP).compareTo(expected) == 0;
-    }
-
     private String confirmRentalPayment(Rental r, PaymentAttempt a) {
         if (!r.hasActiveHold(clock.now()) || payments.isRentalPaid(a.rental())) return "REVIEW_RENTAL_INACTIVE";
-        if (r.getTotalAmount().setScale(0,RoundingMode.HALF_UP).compareTo(a.amount()) != 0) return "REVIEW_SNAPSHOT";
+        if (!rentalInvoice(r).key().equals(a.invoice()) || r.getTotalAmount().setScale(0,RoundingMode.HALF_UP).compareTo(a.amount()) != 0) return "REVIEW_SNAPSHOT";
         var vehicle = r.getVehicle();
         int id = vehicle.getVehicleId();
         if ("MAINTENANCE".equalsIgnoreCase(vehicle.getVehicleStatus()) || payments.hasOpenMaintenance(id))
@@ -214,7 +191,7 @@ public class PaymentService {
         boolean rented = payments.hasRentedOrder(id) || "RENTED".equalsIgnoreCase(vehicle.getVehicleStatus());
         var now = clock.now();
         if (!r.hasActiveHold(now) || !now.isBefore(a.expires())) return "REVIEW_RENTAL_INACTIVE";
-        payments.saveAllocation("RENTAL:"+a.rental(),a);
+
         if (coupon != null) coupon.consumeReservedUse();
         RentalHistory history = new RentalHistory();
         history.setRental(r);
@@ -239,7 +216,7 @@ public class PaymentService {
     public List<Map<String,Object>> listPaymentsForReview() { return payments.findPaymentsForReview(); }
 
     public void saveReviewNote(long event, String email, String note) {
-        if (note.isBlank() || note.length() > 1000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        if (note.isBlank() || note.length() > 900) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         if (!payments.addReviewNote(event,email,note.strip(),clock.now())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 }

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.security.Principal;
 import java.util.Map;
-import java.util.UUID;
+
 
 @Controller
 @RequiredArgsConstructor
@@ -26,7 +26,7 @@ public class PaymentController {
                           Principal user, Model model, RedirectAttributes flash) {
         try {
             model.addAttribute("invoice",payments.getInvoice(user.getName(),id,fees));
-            model.addAttribute("requestKey",UUID.randomUUID());
+
             return "user/payment-invoice";
         } catch (BadSqlGrammarException failure) {
             return showMissingPaymentTables(id, flash, failure);
@@ -38,9 +38,9 @@ public class PaymentController {
 
     @PostMapping("/bookings/{id}/vnpay")
     public String startPayment(@PathVariable int id, @RequestParam boolean fees, @RequestParam String invoiceKey,
-                        @RequestParam UUID requestKey, Principal user, HttpServletRequest request, RedirectAttributes flash) {
+                        Principal user, HttpServletRequest request, RedirectAttributes flash) {
         try {
-            return "redirect:" + payments.startPayment(user.getName(),id,fees,invoiceKey,requestKey,request.getRemoteAddr());
+            return "redirect:" + payments.startPayment(user.getName(),id,fees,invoiceKey,request.getRemoteAddr());
         } catch (BadSqlGrammarException failure) {
             return showMissingPaymentTables(id, flash, failure);
         } catch (IllegalArgumentException invalid) {

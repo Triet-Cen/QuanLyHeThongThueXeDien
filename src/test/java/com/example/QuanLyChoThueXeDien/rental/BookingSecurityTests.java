@@ -175,9 +175,9 @@ class BookingSecurityTests {
 
     @Test void missingPaymentTableReturnsCustomerToBookingWithMessage() throws Exception {
         var missingTable = new BadSqlGrammarException("check payment", "SELECT ...",
-            new SQLSyntaxErrorException("Table 'payment_allocation' doesn't exist", "42S02", 1146));
+            new SQLSyntaxErrorException("Table 'giao_dich_thanh_toan' doesn't exist", "42S02", 1146));
         when(payments.getInvoice("a",8,false)).thenThrow(missingTable);
-        when(payments.startPayment(eq("a"),eq(8),eq(false),eq("snapshot"),any(UUID.class),anyString()))
+        when(payments.startPayment(eq("a"),eq(8),eq(false),eq("snapshot"),anyString()))
             .thenThrow(missingTable);
 
         for (var request : java.util.List.of(get("/bookings/8/invoice"),

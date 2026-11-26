@@ -23,7 +23,7 @@ public class VnPayGateway {
 
     VnPayGateway(@Value("${VNPAY_TMN_CODE:}") String merchant, @Value("${VNPAY_HASH_SECRET:}") String secret,
                  @Value("${VNPAY_URL:}") String gateway, @Value("${VNPAY_RETURN_URL:}") String returnUrl,
-                 @Value("${VNPAY_IPN_URL:}") String ipnUrl, @Value("${VNPAY_FEE_ATTEMPT_MINUTES:0}") int feeMinutes) {
+                 @Value("${VNPAY_IPN_URL:}") String ipnUrl, @Value("${VNPAY_FEE_ATTEMPT_MINUTES:15}") int feeMinutes) {
         this.merchant = merchant;
         this.secret = secret;
         this.gateway = gateway;

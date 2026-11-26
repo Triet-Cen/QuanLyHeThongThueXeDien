@@ -2,41 +2,20 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{admin/fragment/layout :: layout('Đối soát VNPay','reconciliation',~{::#review})}">
 <body><main id="review" class="rental-workspace">
-    <header class="work-heading"><h2>Giao dịch cần đối soát</h2><span th:text="|${events.size()} thông báo gần nhất|"></span></header>
+    <header class="work-heading"><h2>Giao dịch cần đối soát</h2><span th:text="|${events.size()} giao dịch gần nhất|"></span></header>
     <p class="empty-state" th:if="${events.empty}">Chưa có giao dịch cần đối soát.</p>
     <article class="work-card" th:each="e : ${events}">
-        <header class="work-heading">
-            <div><strong th:if="${e.rental != null}" th:text="|Đơn thuê DT${e.rental}|"></strong>
-                <strong th:if="${e.rental == null}">Chưa xác định đơn thuê</strong>
-                <small th:text="|Tham chiếu · ${e.ref}|"></small></div>
-            <time th:text="${e.received_at}"></time>
-        </header>
+        <header class="work-heading"><div><strong th:text="|Đơn thuê DT${e.rental}|"></strong>
+            <small th:text="|Giao dịch #${e.ref}|"></small></div><time th:text="${e.received_at}"></time></header>
         <dl class="facts">
-            <div><dt>Số tiền hóa đơn</dt><dd th:text="${e.expected == null ? 'Chưa xác định' : #numbers.formatDecimal(e.expected,1,'POINT',0,'COMMA') + ' đ'}"></dd></div>
-            <div><dt>VNPay ghi nhận</dt><dd th:text="|${#numbers.formatDecimal(e.received_amount,1,'POINT',0,'COMMA')} ${e.currency}|"></dd></div>
+            <div><dt>Số tiền hóa đơn</dt><dd th:text="|${#numbers.formatDecimal(e.expected,1,'POINT',0,'COMMA')} đ|"></dd></div>
             <div><dt>Mã VNPay</dt><dd th:text="${e.provider_id ?: '—'}"></dd></div>
         </dl>
-        <p class="reason"><strong>Lý do đối soát</strong> <span th:switch="${e.disposition}">
-            <span th:case="'REVIEW_AMOUNT'">Số tiền chưa khớp hóa đơn</span>
-            <span th:case="'REVIEW_COUPON'">Cần kiểm tra lượt mã giảm giá</span>
-            <span th:case="'REVIEW_EXPIRED_ATTEMPT'">Lần thanh toán đã hết hạn</span>
-            <span th:case="'REVIEW_FEE_CHANGED'">Khoản phí đã thay đổi</span>
-            <span th:case="'REVIEW_KIND'">Cần kiểm tra loại thanh toán</span>
-            <span th:case="'REVIEW_MAINTENANCE'">Xe đang bảo trì</span>
-            <span th:case="'REVIEW_MERCHANT'">Thông tin đơn vị nhận tiền chưa khớp</span>
-            <span th:case="'REVIEW_PROVIDER_ID'">Cần kiểm tra mã giao dịch VNPay</span>
-            <span th:case="'REVIEW_PROVIDER_STATUS'">Cần xác minh trạng thái tại VNPay</span>
-            <span th:case="'REVIEW_RENTAL_INACTIVE'">Đơn không còn đủ điều kiện ghi nhận tiền thuê</span>
-            <span th:case="'REVIEW_RETURN'">Cần kiểm tra biên bản trả xe</span>
-            <span th:case="'REVIEW_SCHEDULE'">Lịch xe đã thay đổi</span>
-            <span th:case="'REVIEW_SECOND_RECEIPT'">Có thêm giao dịch cho khoản đã thu</span>
-            <span th:case="'REVIEW_SNAPSHOT'">Số tiền chưa khớp giá đã chốt</span>
-            <span th:case="'REVIEW_UNKNOWN_REF'">Chưa tìm thấy mã tham chiếu</span>
-            <span th:case="*" th:text="${e.disposition}"></span></span></p>
+        <p class="reason"><strong>Thông tin đối soát</strong> <span th:text="${e.disposition ?: 'Cần kiểm tra giao dịch tại VNPay.'}"></span></p>
         <p th:if="${e.resolution}" class="review-note"><strong>Ghi nhận gần nhất</strong> <span th:text="${e.resolution}"></span></p>
         <details class="note-editor"><summary>Ghi nhận xử lý</summary>
             <form method="post" th:action="@{/admin/payments/reconciliation/{id}/notes(id=${e.event_id})}">
-                <label>Nội dung xử lý<textarea name="note" rows="2" required maxlength="1000"></textarea></label>
+                <label>Nội dung xử lý<textarea name="note" rows="2" required maxlength="900"></textarea></label>
                 <button class="admin-button">Lưu ghi nhận</button>
             </form>
         </details>

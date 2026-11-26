@@ -16,10 +16,9 @@ public class RentalRefundService {
     private static final String ELIGIBLE = """
         SELECT g.MaGD,a.MaTK,LEAST(g.SoTien,d.TongTienThue) amount FROM don_thue_xe d
         JOIN khach_hang k ON k.MaKH=d.MaKH JOIN tai_khoan a ON a.MaTK=k.MaTK
-        JOIN payment_allocation p ON p.obligation=CONCAT('RENTAL:',d.MaDonThue)
-        JOIN giao_dich_thanh_toan g ON g.MaGD=p.transaction_id AND g.MaDonThue=d.MaDonThue
+        JOIN giao_dich_thanh_toan g ON g.MaDonThue=d.MaDonThue
         WHERE d.MaDonThue=? AND a.Email=? AND a.VaiTro='CUSTOMER' AND a.TrangThai='ACTIVE'
-        AND d.TrangThaiDon='CANCELLED' AND g.TrangThaiGD='SUCCESS' AND g.PhuongThucThanhToan='VNPAY'
+        AND d.TrangThaiDon='CANCELLED' AND g.TrangThaiGD IN ('SUCCESS','THÀNH CÔNG') AND g.LoaiThanhToan IN ('RENTAL','TIỀN THUÊ')
         AND g.LoaiThanhToan='RENTAL' AND g.SoTien>0 AND d.TongTienThue>0 AND EXISTS (
           SELECT 1 FROM lich_su_trang_thai_don h WHERE h.MaDonThue=d.MaDonThue
           AND h.MaTKThucHien=a.MaTK AND h.TrangThaiCu='BOOKED' AND h.TrangThaiMoi='CANCELLED'
@@ -78,9 +77,8 @@ public class RentalRefundService {
         var state=db.queryForList("""
             SELECT h.TrangThaiHoanTien FROM don_thue_xe d JOIN hoan_tien h ON h.MaDonThue=d.MaDonThue
             JOIN giao_dich_thanh_toan g ON g.MaGD=h.MaGDGoc AND g.MaDonThue=d.MaDonThue
-            JOIN payment_allocation a ON a.transaction_id=g.MaGD AND a.obligation=CONCAT('RENTAL:',d.MaDonThue)
             WHERE d.MaDonThue=? AND h.MaHoanTien=? AND d.TrangThaiDon='CANCELLED'
-            AND g.PhuongThucThanhToan='VNPAY' AND g.TrangThaiGD='SUCCESS'
+            AND g.TrangThaiGD IN ('SUCCESS','THÀNH CÔNG') AND g.LoaiThanhToan IN ('RENTAL','TIỀN THUÊ')
             AND h.LyDoHoan='BR39'
             AND h.SoTienHoan>0 AND (SELECT SUM(s.SoTienHoan) FROM hoan_tien s WHERE s.MaGDGoc=g.MaGD)<=g.SoTien
             FOR UPDATE

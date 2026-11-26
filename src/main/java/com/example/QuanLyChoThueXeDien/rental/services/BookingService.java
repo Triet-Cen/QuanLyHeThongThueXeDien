@@ -179,10 +179,10 @@ public class BookingService {
             .setParameter("id",id).getResultList().isEmpty())
             throw new IllegalArgumentException("Chỉ hủy được đơn Đã đặt và chưa bàn giao.");
         var sources = em.createNativeQuery("""
-            SELECT g.MaGD,g.SoTien FROM payment_allocation a JOIN giao_dich_thanh_toan g ON g.MaGD=a.transaction_id
-            WHERE a.obligation=:key AND g.MaDonThue=:id AND g.TrangThaiGD='SUCCESS'
-            AND g.PhuongThucThanhToan='VNPAY' AND g.LoaiThanhToan='RENTAL' FOR UPDATE
-            """).setParameter("key","RENTAL:"+id).setParameter("id",id).getResultList();
+            SELECT g.MaGD,g.SoTien FROM giao_dich_thanh_toan g
+            WHERE g.MaDonThue=:id AND g.TrangThaiGD IN ('SUCCESS','THÀNH CÔNG')
+            AND g.LoaiThanhToan IN ('RENTAL','TIỀN THUÊ') FOR UPDATE
+            """).setParameter("id",id).getResultList();
         if (!sources.isEmpty()) {
             if (rental.getCouponCode()!=null) coupons.findForUpdate(rental.getCouponCode()).orElseThrow().restoreReservedUse();
         } else {

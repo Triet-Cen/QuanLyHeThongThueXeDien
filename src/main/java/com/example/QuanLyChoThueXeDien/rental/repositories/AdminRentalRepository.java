@@ -33,7 +33,7 @@ public class AdminRentalRepository {
         "fees","EXISTS (SELECT 1 FROM phi_phat_sinh f WHERE f.MaDonThue=d.MaDonThue AND f.TrangThaiThanhToan IN ('UNPAID','CHƯA THANH TOÁN'))",
         "newRefund","EXISTS (SELECT 1 FROM hoan_tien h WHERE h.MaDonThue=d.MaDonThue AND h.LyDoHoan='BR39' AND h.TrangThaiHoanTien='PENDING')",
         "refund","EXISTS (SELECT 1 FROM hoan_tien h WHERE h.MaDonThue=d.MaDonThue AND h.NgayHoanTat IS NULL AND h.TrangThaiHoanTien IN ('PENDING','PROCESSING','Chờ xử lý','Đang xử lý'))",
-        "review","EXISTS (SELECT 1 FROM payment_ipn i JOIN giao_dich_thanh_toan g ON g.txn_ref=i.ref WHERE g.MaDonThue=d.MaDonThue AND i.disposition LIKE 'REVIEW%')");
+        "review","EXISTS (SELECT 1 FROM giao_dich_thanh_toan g WHERE g.MaDonThue=d.MaDonThue AND g.TrangThaiGD IN ('NEEDS_RECONCILIATION','CẦN ĐỐI SOÁT'))");
 
 
     public void requireAdmin(String email) {
@@ -89,18 +89,15 @@ public class AdminRentalRepository {
             SELECT d.TongTienThue AS `Tiền thuê chốt`,
             COALESCE((SELECT SUM(SoTien) FROM phi_phat_sinh WHERE MaDonThue=d.MaDonThue),0) AS `Tổng phí`,
             COALESCE((SELECT SUM(SoTien) FROM phi_phat_sinh WHERE MaDonThue=d.MaDonThue AND TrangThaiThanhToan IN ('UNPAID','CHƯA THANH TOÁN')),0) AS `Phí chưa trả`,
-            COALESCE((SELECT SUM(g.SoTien) FROM giao_dich_thanh_toan g WHERE g.MaDonThue=d.MaDonThue AND EXISTS
-                (SELECT 1 FROM payment_allocation a WHERE a.transaction_id=g.MaGD AND a.obligation LIKE 'RENTAL:%')),0) AS `Đã thu thuê`,
-            COALESCE((SELECT SUM(g.SoTien) FROM giao_dich_thanh_toan g WHERE g.MaDonThue=d.MaDonThue AND EXISTS
-                (SELECT 1 FROM payment_allocation a WHERE a.transaction_id=g.MaGD AND a.obligation LIKE 'FEE:%')),0) AS `Đã thu phí`,
+            COALESCE((SELECT SUM(g.SoTien) FROM giao_dich_thanh_toan g WHERE g.MaDonThue=d.MaDonThue AND g.TrangThaiGD IN ('SUCCESS','THÀNH CÔNG') AND g.LoaiThanhToan IN ('RENTAL','TIỀN THUÊ')),0) AS `Đã thu thuê`,
+            COALESCE((SELECT SUM(g.SoTien) FROM giao_dich_thanh_toan g WHERE g.MaDonThue=d.MaDonThue AND g.TrangThaiGD IN ('SUCCESS','THÀNH CÔNG') AND g.LoaiThanhToan IN ('EXTRA_FEE','PHÍ PHÁT SINH')),0) AS `Đã thu phí`,
             COALESCE((SELECT SUM(SoTienHoan) FROM hoan_tien WHERE MaDonThue=d.MaDonThue AND NgayHoanTat IS NOT NULL),0) AS `Đã hoàn`,
             COALESCE((SELECT SUM(SoTienHoan) FROM hoan_tien WHERE MaDonThue=d.MaDonThue AND NgayHoanTat IS NULL
                 AND TrangThaiHoanTien IN ('PENDING','PROCESSING','Chờ xử lý','Đang xử lý')),0) AS `Chờ hoàn`
             FROM don_thue_xe d WHERE d.MaDonThue=:id
             """);
-        queries.put("Giao dịch","SELECT MaGD,LoaiThanhToan,PhuongThucThanhToan,txn_ref,MaGiaoDichVNPAYhoacSEPay,SoTien,TrangThaiGD,ThoiGianGiaoDich FROM giao_dich_thanh_toan WHERE MaDonThue=:id ORDER BY MaGD DESC");
-        queries.put("Phân bổ","SELECT a.obligation,g.MaGD FROM payment_allocation a JOIN giao_dich_thanh_toan g ON g.MaGD=a.transaction_id WHERE g.MaDonThue=:id");
-        queries.put("Đối soát","SELECT i.event_id,i.received_amount,i.received_at,i.disposition,n.note,n.recorded_at FROM payment_ipn i JOIN giao_dich_thanh_toan g ON g.txn_ref=i.ref LEFT JOIN payment_review_note n ON n.event_id=i.event_id WHERE g.MaDonThue=:id AND i.disposition LIKE 'REVIEW%'");
+        queries.put("Giao dịch","SELECT MaGD,LoaiThanhToan,MaGiaoDichVNPAYhoacSEPay,SoTien,TrangThaiGD,ThoiGianGiaoDich FROM giao_dich_thanh_toan WHERE MaDonThue=:id ORDER BY MaGD DESC");
+        queries.put("Đối soát","SELECT ThoiGianThayDoi,GhiChu,MaTKThucHien FROM lich_su_trang_thai_don WHERE MaDonThue=:id AND GhiChu LIKE 'VNPAY %' ORDER BY MaLichSu DESC");
         queries.put("Phí phát sinh","SELECT * FROM phi_phat_sinh WHERE MaDonThue=:id");
         queries.put("Hoàn tiền","SELECT * FROM hoan_tien WHERE MaDonThue=:id");
         queries.put("Biên bản giao","SELECT * FROM bien_ban_giao_xe WHERE MaDonThue=:id");

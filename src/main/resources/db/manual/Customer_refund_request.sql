@@ -1,4 +1,4 @@
--- Apply once after VNPay_payment_schema.sql. Historical rows retain NULL metadata.
+-- Optional customer refund metadata. Independent of the VNPay payment schema; historical rows retain NULL metadata.
 ALTER TABLE hoan_tien
   ADD COLUMN customer_request_order INT NULL UNIQUE,
   ADD COLUMN requested_by INT NULL,
